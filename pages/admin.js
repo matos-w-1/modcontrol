@@ -231,7 +231,7 @@ export default function Admin() {
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
                 <thead><tr>{['Mod','Shift','Status','Used','Remaining','Today'].map(h=><th key={h} style={{textAlign:'left',padding:'7px 8px',fontSize:11,color:D.hint,borderBottom:`0.5px solid ${D.border}`,fontWeight:500,textTransform:'uppercase'}}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {mods.filter(m=>m.status==='active').map(m=>{
+                  {mods.filter(m=>m.status==='active'&&m.role!=='admin').map(m=>{
                     const log = todayLogs.find(a=>a.user_id===m.id)
                     const clockInTime = log?.clock_in ? new Date(log.clock_in).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—'
                     const clockOutTime = log?.clock_out ? new Date(log.clock_out).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—'
