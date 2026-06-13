@@ -208,7 +208,7 @@ export default function Admin() {
 
           {page==='dashboard' && <>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:16}}>
-              {[['Active mods',String(mods.filter(m=>m.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin').length),'#4ade80'],['Pending approvals',String(pending.length),'#fbbf24'],['Pending swaps',String(pendingSwaps.length),'#60a5fa'],['On shift now',String(todayLogs.filter(a=>a.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin').length),'#a78bfa']].map(([l,v,c])=>(
+              {[['Active mods',String(mods.filter(m=>m.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin').length),'#4ade80'],['Pending approvals',String(pending.length),'#fbbf24'],['Pending swaps',String(pendingSwaps.length),'#60a5fa'],['On shift now',String(todayLogs.filter(a=>a.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin').length),'#a78bfa']].map(([l,v,c])=>(
                 <div key={l} style={{background:'rgba(255,255,255,0.04)',borderRadius:10,padding:'12px 14px',border:`0.5px solid ${D.border}`}}>
                   <div style={{fontSize:11,color:D.hint,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>{l}</div>
                   <div style={{fontSize:24,fontWeight:500,color:c}}>{v}</div>
@@ -220,17 +220,17 @@ export default function Admin() {
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
                 <thead><tr>{['Mod','Shift','Status','Used','Remaining','Today'].map(h=><th key={h} style={{textAlign:'left',padding:'7px 8px',fontSize:11,color:D.hint,borderBottom:`0.5px solid ${D.border}`,fontWeight:500,textTransform:'uppercase'}}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {mods.filter(m=>m.m.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'){
+                  {mods.filter(m=>m.m.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'){
                     const log = todayLogs.find(a=>a.user_id===m.id)
                     const clockInTime = log?.clock_in ? new Date(log.clock_in).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—'
                     const clockOutTime = log?.clock_out ? new Date(log.clock_out).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—'
                     const todayStatus = log ? (log.status==='complete'?'done':log.status==='lunch'?'lunch':'active') : 'absent'
-                    const todayColor = todayStatus==='done'?'#4ade80':todayStatus==='lunch'?'#fbbf24':todaym.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'?'#60a5fa':'#4a5568'
+                    const todayColor = todayStatus==='done'?'#4ade80':todayStatus==='lunch'?'#fbbf24':todaym.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'?'#60a5fa':'#4a5568'
                     return (
                       <tr key={m.id}>
                         <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`,fontWeight:500}}>{m.name}</td>
                         <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`}}>{shiftCell(m)}</td>
-                        <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`}}>{badge(m.m.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)',m.m.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'?'#4ade80':'#f87171',m.status)}</td>
+                        <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`}}>{badge(m.m.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)',m.m.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'?'#4ade80':'#f87171',m.status)}</td>
                         <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`,color:'#60a5fa'}}>{m.vacation_used}</td>
                         <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`,color:(m.vacation_allowance-m.vacation_used)<=3?'#f87171':'#4ade80',fontWeight:500}}>{m.vacation_allowance-m.vacation_used}</td>
                         <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`,fontSize:12}}>
@@ -357,7 +357,7 @@ export default function Admin() {
                       <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`,color:D.muted}}>{m.role}</td>
                       <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`,color:'#60a5fa'}}>{m.role==='admin'?'—':m.vacation_used}</td>
                       <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`,color:m.role==='admin'?D.hint:(m.vacation_allowance-m.vacation_used)<=3?'#f87171':'#4ade80',fontWeight:500}}>{m.role==='admin'?'—':(m.vacation_allowance-m.vacation_used)}</td>
-                      <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`}}>{badge(m.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)',m.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'?'#4ade80':'#f87171',m.status)}</td>
+                      <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`}}>{badge(m.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)',m.m.m.status==='active'&&m.role!=='admin'&&m.role!=='admin'&&m.role!=='admin'?'#4ade80':'#f87171',m.status)}</td>
                       <td style={{padding:'9px 8px',borderBottom:`0.5px solid ${D.border}`}}>
                         <button style={{...btn('rgba(255,255,255,0.08)',false),padding:'5px 10px',fontSize:12}} onClick={()=>{ setEditMod(m); setEditForm({...m,birthday:m.birthday||''}); setEditMsg(''); setPwMsg('') }}>Edit</button>
                       </td>
