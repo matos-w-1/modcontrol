@@ -1,412 +1,829 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { useRouter } from 'next/router'
 
-export default function Dashboard() {
-  const router = useRouter()
-  const [profile, setProfile] = useState(null)
-  const [allMods, setAllMods] = useState([])
-  const [attendance, setAttendance] = useState(null)
-  const [requests, setRequests] = useState([])
-  const [swaps, setSwaps] = useState([])
-  const [page, setPage] = useState('dashboard')
-  const [tick, setTick] = useState(0)
-  const [vacForm, setVacForm] = useState({ start: '', end: '', notes: '' })
-  const [vacMsg, setVacMsg] = useState('')
-  const [swapForm, setSwapForm] = useState({ target_id: '', swap_date: '', notes: '' })
-  const [swapMsg, setSwapMsg] = useState('')
-  const [uid, setUid] = useState(null)
+// ─── Icons ────────────────────────────────────────────────────────────────────
+const Icon = {
+  home:    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  clock:   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  palm:    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>,
+  swap:    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>,
+  user:    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  cake:    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><line x1="2" y1="21" x2="22" y2="21"/><path d="M12 15V7"/><path d="M8 7V5c0-1.1.9-2 2-2h4a2 2 0 0 1 2 2v2"/><circle cx="12" cy="4" r="1" fill="currentColor"/></svg>,
+  logout:  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+  check:   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>,
+  up:      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="5 12 12 5 19 12"/><line x1="12" y1="5" x2="12" y2="19"/></svg>,
+  down:    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="19 12 12 19 5 12"/><line x1="12" y1="5" x2="12" y2="19"/></svg>,
+  food:    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>,
+  back:    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>,
+}
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { router.push('/'); return }
-      setUid(session.user.id)
-      loadProfile(session.user.id)
-      loadTodayAttendance(session.user.id)
-      loadRequests(session.user.id)
-      loadSwaps(session.user.id)
-      loadAllMods()
-    })
-    const t = setInterval(() => setTick(n => n + 1), 1000)
-    return () => clearInterval(t)
-  }, [])
-
-  async function loadProfile(id) {
-    const { data } = await supabase.from('profiles').select('*').eq('id', id).single()
-    if (data) setProfile(data)
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmtTime(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}
+function fmtDate(d) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+function elapsed(from) {
+  if (!from) return '—'
+  const mins = Math.floor((Date.now() - new Date(from)) / 60000)
+  const h = Math.floor(mins / 60), m = mins % 60
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+function daysUntil(dateStr) {
+  const today = new Date(); today.setHours(0,0,0,0)
+  const target = new Date(dateStr); target.setHours(0,0,0,0)
+  return Math.ceil((target - today) / 86400000)
+}
+function businessDays(start, end) {
+  let count = 0, cur = new Date(start)
+  const last = new Date(end)
+  while (cur <= last) {
+    const d = cur.getDay()
+    if (d !== 0 && d !== 6) count++
+    cur.setDate(cur.getDate() + 1)
   }
+  return count
+}
 
-  async function loadAllMods() {
-    const { data } = await supabase.from('profiles').select('id,name,shift').eq('status','active').order('name')
-    if (data) setAllMods(data)
-  }
-
-  async function loadTodayAttendance(id) {
-    const today = new Date().toISOString().slice(0, 10)
-    const { data } = await supabase.from('attendance').select('*')
-      .eq('user_id', id).gte('created_at', today).order('created_at', { ascending: false }).limit(1)
-    if (data && data.length > 0) setAttendance(data[0])
-  }
-
-  async function loadRequests(id) {
-    const { data } = await supabase.from('vacation_requests').select('*')
-      .eq('user_id', id).order('submitted_at', { ascending: false })
-    if (data) setRequests(data)
-  }
-
-  async function loadSwaps(id) {
-    const { data } = await supabase.from('shift_swaps').select('*, requester:requester_id(name,shift), target:target_id(name,shift)')
-      .or(`requester_id.eq.${id},target_id.eq.${id}`).order('created_at', { ascending: false })
-    if (data) setSwaps(data)
-  }
-
-  async function clockIn() {
-    const { data: s } = await supabase.auth.getSession()
-    const { data } = await supabase.from('attendance').insert({
-      user_id: s.session.user.id, clock_in: new Date().toISOString(), status: 'active'
-    }).select().single()
-    setAttendance(data)
-  }
-
-  async function lunchStart() {
-    const { data } = await supabase.from('attendance')
-      .update({ lunch_start: new Date().toISOString(), status: 'lunch' })
-      .eq('id', attendance.id).select().single()
-    setAttendance(data)
-  }
-
-  async function lunchEnd() {
-    const { data } = await supabase.from('attendance')
-      .update({ lunch_end: new Date().toISOString(), status: 'active' })
-      .eq('id', attendance.id).select().single()
-    setAttendance(data)
-  }
-
-  async function clockOut() {
-    const now = new Date()
-    const shiftMs = now - new Date(attendance.clock_in)
-    const lunchMs = attendance.lunch_start && attendance.lunch_end
-      ? new Date(attendance.lunch_end) - new Date(attendance.lunch_start) : 0
-    const { data } = await supabase.from('attendance').update({
-      clock_out: now.toISOString(), status: 'complete',
-      total_hours: parseFloat(((shiftMs - lunchMs) / 3600000).toFixed(2)),
-      lunch_minutes: Math.round(lunchMs / 60000)
-    }).eq('id', attendance.id).select().single()
-    setAttendance(data)
-  }
-
-  async function submitVacation(e) {
-    e.preventDefault()
-    setVacMsg('')
-    const start = new Date(vacForm.start)
-    const end = new Date(vacForm.end)
-    const days = Math.round((end - start) / 86400000) + 1
-    const diffDays = Math.round((start - new Date()) / 86400000)
-    if (days > 5) { setVacMsg('error:Max 5 consecutive days allowed.'); return }
-    if (diffDays < 21) { setVacMsg('error:Minimum 21 days advance notice required.'); return }
-    if (days > (profile.vacation_allowance - profile.vacation_used)) { setVacMsg('error:Insufficient balance.'); return }
-    const { data: s } = await supabase.auth.getSession()
-    await supabase.from('vacation_requests').insert({
-      user_id: s.session.user.id, start_date: vacForm.start,
-      end_date: vacForm.end, days_requested: days, admin_notes: vacForm.notes
-    })
-    setVacMsg('ok:Request submitted!')
-    setVacForm({ start: '', end: '', notes: '' })
-    loadRequests(s.session.user.id)
-  }
-
-  async function submitSwap(e) {
-    e.preventDefault()
-    setSwapMsg('')
-    if (!swapForm.target_id) { setSwapMsg('error:Select a moderator to swap with.'); return }
-    if (swapForm.target_id === uid) { setSwapMsg('error:Cannot swap with yourself.'); return }
-    const target = allMods.find(m => m.id === swapForm.target_id)
-    await supabase.from('shift_swaps').insert({
-      requester_id: uid,
-      target_id: swapForm.target_id,
-      requester_shift: profile.shift,
-      target_shift: target?.shift || '',
-      swap_date: swapForm.swap_date,
-      notes: swapForm.notes,
-      status: 'pending',
-      target_response: 'pending',
-      admin_response: 'pending'
-    })
-    setSwapMsg('ok:Swap request sent!')
-    setSwapForm({ target_id: '', swap_date: '', notes: '' })
-    loadSwaps(uid)
-  }
-
-  async function respondToSwap(swapId, accept) {
-    await supabase.from('shift_swaps').update({
-      target_response: accept ? 'accepted' : 'declined',
-      status: accept ? 'waiting_admin' : 'declined'
-    }).eq('id', swapId)
-    loadSwaps(uid)
-  }
-
-  async function logout() {
-    await supabase.auth.signOut()
-    router.push('/')
-  }
-
-  function fmtMs(ms) {
-    let s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
-  }
-
-  if (!profile) return (
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'system-ui,sans-serif',background:'#0f1117',color:'#888',fontSize:15}}>
-      Loading...
-    </div>
-  )
-
-  const now = new Date()
-  const shiftMs = attendance?.clock_in ? now - new Date(attendance.clock_in) : 0
-  const lunchMs = attendance?.lunch_start ? (attendance.lunch_end ? new Date(attendance.lunch_end) - new Date(attendance.lunch_start) : now - new Date(attendance.lunch_start)) : 0
-  const workMs = Math.max(0, shiftMs - lunchMs)
-  const isWorking = attendance && !attendance.clock_out
-  const isOnLunch = attendance?.status === 'lunch'
-  const isDone = attendance?.status === 'complete'
-
-  const shiftColors = { morning: ['#1a3a5c','#60a5fa'], afternoon: ['#3a2500','#fbbf24'], night: ['#1e1a3a','#a78bfa'] }
-  const sc = shiftColors[profile.shift] || shiftColors.morning
-
-  const D = {
-    bg: '#0f1117', sidebar: '#161b27', card: '#1a2030',
-    border: 'rgba(255,255,255,0.08)', text: '#f0f0f0',
-    muted: '#8892a4', hint: '#4a5568',
-  }
-
-  const btn = (bg, disabled) => ({
-    display:'inline-flex', alignItems:'center', gap:6, padding:'9px 16px',
-    borderRadius:8, fontSize:13, fontWeight:500, border:'none',
-    background: disabled ? '#2a2f3a' : bg, color: disabled ? '#4a5568' : '#fff',
-    cursor: disabled ? 'not-allowed' : 'pointer', fontFamily:'inherit'
-  })
-
-  const navBtn = (id) => ({
-    display:'flex', alignItems:'center', gap:8, padding:'9px 12px', borderRadius:8,
-    cursor:'pointer', fontSize:13, color: page===id ? '#fff' : D.muted,
-    background: page===id ? 'rgba(255,255,255,0.08)' : 'transparent',
-    fontWeight: page===id ? 500 : 400, border:'none', width:'100%',
-    textAlign:'left', fontFamily:'inherit', marginBottom:2
-  })
-
-  const card = { background: D.card, border: `0.5px solid ${D.border}`, borderRadius:12, padding:18, marginBottom:16 }
-  const metric = { background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'12px 14px', border:`0.5px solid ${D.border}` }
-  const input = { width:'100%', padding:'9px 11px', borderRadius:8, border:`0.5px solid rgba(255,255,255,0.12)`, background:'rgba(255,255,255,0.06)', color:D.text, fontSize:13, fontFamily:'inherit', outline:'none' }
-
-  const badge = (bg, color, text) => (
-    <span style={{display:'inline-flex',alignItems:'center',padding:'3px 10px',borderRadius:20,fontSize:12,fontWeight:500,background:bg,color}}>{text}</span>
-  )
-
-  const pendingSwaps = swaps.filter(s => s.target_id === uid && s.target_response === 'pending')
+// ─── Shared sidebar layout ────────────────────────────────────────────────────
+function Layout({ profile, page, setPage, onLogout, children }) {
+  const NAV = [
+    { id: 'home',       label: 'Dashboard',        icon: Icon.home },
+    { id: 'attendance', label: 'My Attendance',     icon: Icon.clock },
+    { id: 'vacation',   label: 'Vacation Requests', icon: Icon.palm },
+    { id: 'swaps',      label: 'Shift Swaps',       icon: Icon.swap },
+    { id: 'profile',    label: 'My Profile',        icon: Icon.user },
+    { id: 'birthdays',  label: 'Birthdays',         icon: Icon.cake },
+  ]
 
   return (
-    <div style={{minHeight:'100vh',background:D.bg,fontFamily:'system-ui,sans-serif',display:'flex',color:D.text}}>
-
-      <div style={{width:220,flexShrink:0,background:D.sidebar,borderRight:`0.5px solid ${D.border}`,display:'flex',flexDirection:'column',minHeight:'100vh'}}>
-        <div style={{padding:'20px 16px 14px',borderBottom:`0.5px solid ${D.border}`}}>
-          <div style={{fontSize:16,fontWeight:600,marginBottom:2}}>🛡️ ModControl</div>
-          <div style={{fontSize:12,color:D.muted,marginTop:2}}>{profile.name}</div>
-          <div style={{marginTop:8}}>{badge(sc[0],sc[1],profile.shift+' shift')}</div>
+    <div style={s.root}>
+      <aside style={s.sidebar}>
+        <div style={s.sideTop}>
+          <div style={s.logoRow}>
+            <div style={s.logoIcon}>M</div>
+            <span style={s.logoText}>ModControl</span>
+          </div>
+          <div style={s.roleLabel}>Moderator</div>
+          <div style={s.userLabel}>· {profile?.name}</div>
         </div>
-        <div style={{padding:'12px 10px',flex:1}}>
-          <div style={{fontSize:11,fontWeight:500,color:D.hint,textTransform:'uppercase',letterSpacing:'.08em',padding:'0 10px',marginBottom:6}}>Navigation</div>
-          {[['dashboard','📊 Dashboard'],['attendance','🕐 Attendance'],['vacation','🏖 Vacation'],['swaps',`🔄 Shift Swaps${pendingSwaps.length>0?' ('+pendingSwaps.length+')':''}`],['profile','👤 Profile']].map(([id,label]) => (
-            <button key={id} style={navBtn(id)} onClick={() => setPage(id)}>{label}</button>
+        <nav style={s.nav}>
+          {NAV.map(item => (
+            <div key={item.id} style={{...s.navItem,...(page===item.id?s.navActive:{})}} onClick={() => setPage(item.id)}>
+              {item.icon}{item.label}
+            </div>
           ))}
+        </nav>
+        <div style={s.sideBottom}>
+          <button style={s.logoutBtn} onClick={onLogout}>{Icon.logout} Sign out</button>
         </div>
-        <div style={{padding:'10px 16px 18px',borderTop:`0.5px solid ${D.border}`}}>
-          <button onClick={logout} style={{...btn('rgba(255,255,255,0.08)',false),width:'100%',justifyContent:'center',color:D.muted}}>Sign out</button>
+      </aside>
+      <main style={s.main}>{children}</main>
+    </div>
+  )
+}
+
+// ─── Page: Dashboard ──────────────────────────────────────────────────────────
+function PageHome({ profile, attendance, onAction, busy, error }) {
+  const isClockedIn = !!attendance && !attendance.clock_out
+  const isOnLunch   = isClockedIn && !!attendance.lunch_start && !attendance.lunch_end
+
+  const shiftTimes = {
+    'Night Shift':      '00:00 – 09:00',
+    'Morning Shift':    '09:00 – 17:00',
+    'Afternoon Shift':  '17:00 – 00:00',
+  }
+
+  return (
+    <div style={s.content}>
+      <h1 style={s.pageTitle}>Dashboard</h1>
+
+      {/* Today's shift card */}
+      <div style={s.card}>
+        <div style={s.cardHead}>
+          <span style={s.cardTitle}>Today's Shift</span>
+          <span style={{
+            ...s.statusBadge,
+            background: !isClockedIn ? '#1e2433' : isOnLunch ? '#f59e0b22' : '#34d39922',
+            color:      !isClockedIn ? '#4a5568'  : isOnLunch ? '#f59e0b'   : '#34d399',
+            border:     `1px solid ${!isClockedIn ? '#2d3748' : isOnLunch ? '#f59e0b44' : '#34d39944'}`,
+          }}>
+            {!isClockedIn ? 'Offline' : isOnLunch ? 'On Lunch' : 'Working'}
+          </span>
+        </div>
+
+        <div style={s.shiftGrid}>
+          <div style={s.shiftItem}>
+            <div style={s.shiftLabel}>Shift Type</div>
+            <div style={s.shiftValue}>{profile?.shift || '—'}</div>
+          </div>
+          <div style={s.shiftItem}>
+            <div style={s.shiftLabel}>Schedule</div>
+            <div style={s.shiftValue}>{shiftTimes[profile?.shift] || '—'}</div>
+          </div>
+          <div style={s.shiftItem}>
+            <div style={s.shiftLabel}>Clocked In</div>
+            <div style={s.shiftValue}>{isClockedIn ? fmtTime(attendance.clock_in) : '—'}</div>
+          </div>
+          <div style={s.shiftItem}>
+            <div style={s.shiftLabel}>Time Elapsed</div>
+            <div style={s.shiftValue}>{isClockedIn ? elapsed(attendance.clock_in) : '—'}</div>
+          </div>
+        </div>
+
+        {error && <div style={s.errorBox}>{error}</div>}
+
+        <div style={s.actions}>
+          {!isClockedIn && (
+            <button style={{...s.btn, ...s.btnGreen}} disabled={busy} onClick={() => onAction('clock_in')}>
+              {Icon.up} {busy ? '…' : 'Clock In'}
+            </button>
+          )}
+          {isClockedIn && !isOnLunch && (
+            <button style={{...s.btn, ...s.btnAmber}} disabled={busy} onClick={() => onAction('lunch_start')}>
+              {Icon.food} {busy ? '…' : 'Start Lunch'}
+            </button>
+          )}
+          {isClockedIn && isOnLunch && (
+            <button style={{...s.btn, ...s.btnBlue}} disabled={busy} onClick={() => onAction('lunch_end')}>
+              {Icon.back} {busy ? '…' : 'End Lunch'}
+            </button>
+          )}
+          {isClockedIn && (
+            <button style={{...s.btn, ...s.btnRed}} disabled={busy} onClick={() => onAction('clock_out')}>
+              {Icon.down} {busy ? '…' : 'Clock Out'}
+            </button>
+          )}
         </div>
       </div>
-
-      <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0}}>
-        <div style={{height:54,background:D.sidebar,borderBottom:`0.5px solid ${D.border}`,display:'flex',alignItems:'center',padding:'0 20px'}}>
-          <div style={{flex:1,fontSize:15,fontWeight:500,textTransform:'capitalize'}}>{page.replace('swaps','Shift Swaps')}</div>
-          <div style={{fontSize:13,color:D.muted}}>{new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
+{/* Weekly schedule */}
+<div style={s.card}>
+  <div style={s.cardHead}><span style={s.cardTitle}>My Weekly Schedule</span></div>
+  <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:6}}>
+    {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day => {
+      const isOff = (profile?.days_off||[]).includes(day)
+      const isToday = new Date().toLocaleDateString('en-GB',{weekday:'long'}) === day
+      return (
+        <div key={day} style={{
+          textAlign:'center', padding:'10px 4px', borderRadius:8,
+          background: isOff ? '#f8717115' : isToday ? '#3b82f620' : '#0f1117',
+          border: `1px solid ${isOff ? '#f8717133' : isToday ? '#3b82f644' : '#1e2433'}`,
+        }}>
+          <div style={{fontSize:'0.65rem', color: isOff?'#f87171': isToday?'#60a5fa':'#64748b', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:4}}>
+            {day.slice(0,3)}
+          </div>
+          <div style={{fontSize:'0.7rem', fontWeight:600, color: isOff?'#f87171': isToday?'#60a5fa':'#94a3b8'}}>
+            {isOff ? 'OFF' : profile?.shift?.split(' ')[0] || '—'}
+          </div>
         </div>
-
-        <div style={{flex:1,overflowY:'auto',padding:20}}>
-
-          {page === 'dashboard' && <>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:16}}>
-              {[['Allowance','15',''],['Used',String(profile.vacation_used),'#60a5fa'],['Remaining',String(profile.vacation_allowance-profile.vacation_used),'#4ade80'],['Shift time',isWorking&&!isDone?fmtMs(shiftMs):'--:--:--','#60a5fa']].map(([l,v,c])=>(
-                <div key={l} style={metric}>
-                  <div style={{fontSize:11,color:D.hint,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>{l}</div>
-                  <div style={{fontSize:24,fontWeight:500,color:c||D.text,fontVariantNumeric:'tabular-nums'}}>{v}</div>
-                </div>
-              ))}
+      )
+    })}
+  </div>
+</div>
+      {/* Vacation summary */}
+      <div style={s.card}>
+        <div style={s.cardHead}><span style={s.cardTitle}>Vacation Summary</span></div>
+        <div style={s.vacRow}>
+          <div style={s.vacItem}>
+            <div style={s.vacNum}>{profile?.vacation_allowance ?? 15}</div>
+            <div style={s.vacLabel}>Annual Allowance</div>
+          </div>
+          <div style={s.vacItem}>
+            <div style={{...s.vacNum, color:'#f87171'}}>{profile?.vacation_used ?? 0}</div>
+            <div style={s.vacLabel}>Days Used</div>
+          </div>
+          <div style={s.vacItem}>
+            <div style={{...s.vacNum, color:'#f59e0b'}}>{profile?.vacation_pending ?? 0}</div>
+            <div style={s.vacLabel}>Pending</div>
+          </div>
+          <div style={s.vacItem}>
+            <div style={{...s.vacNum, color:'#34d399'}}>
+              {(profile?.vacation_allowance ?? 15) - (profile?.vacation_used ?? 0) - (profile?.vacation_pending ?? 0)}
             </div>
-            <div style={card}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
-                <div>
-                  <div style={{fontSize:17,fontWeight:500,marginBottom:6}}>{profile.name}</div>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    {badge(sc[0],sc[1],profile.shift)}
-                    <span style={{fontSize:13,color:isOnLunch?'#fbbf24':isDone?D.muted:isWorking?'#4ade80':D.hint}}>
-                      {isDone?'✓ Complete':isOnLunch?'On lunch':isWorking?'● On shift':'Not clocked in'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              {isWorking && !isDone && (
-                <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:14}}>
-                  {[['Shift time',fmtMs(shiftMs),'#60a5fa'],['Lunch',fmtMs(lunchMs),'#fbbf24'],['Worked',fmtMs(workMs),'#4ade80']].map(([l,v,c])=>(
-                    <div key={l} style={metric}><div style={{fontSize:11,color:D.hint,marginBottom:4}}>{l}</div><div style={{fontSize:18,fontWeight:500,color:c,fontVariantNumeric:'tabular-nums'}}>{v}</div></div>
-                  ))}
-                </div>
-              )}
-              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                <button style={btn('#166534',!!attendance)} disabled={!!attendance} onClick={clockIn}>▶ Clock in</button>
-                <button style={btn('#1e40af',!isWorking||isOnLunch||isDone)} disabled={!isWorking||isOnLunch||isDone} onClick={lunchStart}>☕ Start lunch</button>
-                <button style={btn('#92400e',!isOnLunch)} disabled={!isOnLunch} onClick={lunchEnd}>✕ End lunch</button>
-                <button style={btn('#991b1b',!isWorking||isOnLunch||isDone)} disabled={!isWorking||isOnLunch||isDone} onClick={clockOut}>■ Clock out</button>
-              </div>
-              {isDone && <div style={{marginTop:12,padding:'10px 12px',background:'rgba(74,222,128,0.1)',borderRadius:8,fontSize:13,color:'#4ade80',border:'0.5px solid rgba(74,222,128,0.2)'}}>✓ Shift complete — {attendance.total_hours}h worked · {attendance.lunch_minutes}m lunch</div>}
-            </div>
-          </>}
-
-          {page === 'attendance' && (
-            <div style={card}>
-              <div style={{fontSize:14,fontWeight:500,marginBottom:12}}>Today's record</div>
-              {attendance ? (
-                <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
-                  {[['Clock in',attendance.clock_in],['Lunch start',attendance.lunch_start],['Lunch end',attendance.lunch_end],['Clock out',attendance.clock_out]].map(([l,v])=>(
-                    <div key={l} style={metric}>
-                      <div style={{fontSize:11,color:D.hint,marginBottom:4}}>{l}</div>
-                      <div style={{fontSize:18,fontWeight:500}}>{v?new Date(v).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'—'}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : <div style={{fontSize:13,color:D.muted,padding:'12px 0'}}>No record today — clock in to start.</div>}
-              {isDone && <div style={{marginTop:12,padding:'10px 12px',background:'rgba(74,222,128,0.08)',borderRadius:8,fontSize:13,color:'#4ade80'}}>{attendance.total_hours}h worked · {attendance.lunch_minutes}m lunch</div>}
-            </div>
-          )}
-
-          {page === 'vacation' && <>
-            <div style={card}>
-              <div style={{fontSize:14,fontWeight:500,marginBottom:14}}>New vacation request</div>
-              <form onSubmit={submitVacation}>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-                  <div><label style={{fontSize:12,fontWeight:500,color:D.muted,display:'block',marginBottom:5}}>Start date</label><input type="date" value={vacForm.start} onChange={e=>setVacForm(f=>({...f,start:e.target.value}))} required style={input} /></div>
-                  <div><label style={{fontSize:12,fontWeight:500,color:D.muted,display:'block',marginBottom:5}}>End date</label><input type="date" value={vacForm.end} onChange={e=>setVacForm(f=>({...f,end:e.target.value}))} required style={input} /></div>
-                </div>
-                <div style={{marginBottom:14}}><label style={{fontSize:12,fontWeight:500,color:D.muted,display:'block',marginBottom:5}}>Notes</label><input type="text" value={vacForm.notes} onChange={e=>setVacForm(f=>({...f,notes:e.target.value}))} placeholder="Optional…" style={input} /></div>
-                {vacMsg && <div style={{padding:'9px 12px',borderRadius:8,fontSize:13,marginBottom:12,background:vacMsg.startsWith('ok')?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)',color:vacMsg.startsWith('ok')?'#4ade80':'#f87171'}}>{vacMsg.split(':')[1]}</div>}
-                <button type="submit" style={btn('#1e40af',false)}>Submit request</button>
-              </form>
-            </div>
-            <div style={card}>
-              <div style={{fontSize:14,fontWeight:500,marginBottom:12}}>Request history</div>
-              {requests.length===0 && <div style={{fontSize:13,color:D.muted}}>No requests yet.</div>}
-              {requests.map(r=>(
-                <div key={r.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:`0.5px solid ${D.border}`,fontSize:13}}>
-                  <div><span style={{fontWeight:500}}>{r.start_date}</span><span style={{color:D.muted}}> → {r.end_date}</span><span style={{marginLeft:8,color:D.hint}}>{r.days_requested} days</span></div>
-                  {badge(r.status==='approved'?'rgba(74,222,128,0.1)':r.status==='declined'?'rgba(248,113,113,0.1)':'rgba(251,191,36,0.1)',r.status==='approved'?'#4ade80':r.status==='declined'?'#f87171':'#fbbf24',r.status)}
-                </div>
-              ))}
-            </div>
-          </>}
-
-          {page === 'swaps' && <>
-            {pendingSwaps.length > 0 && (
-              <div style={card}>
-                <div style={{fontSize:14,fontWeight:500,marginBottom:12}}>⚠ Pending swap requests for you</div>
-                {pendingSwaps.map(s => (
-                  <div key={s.id} style={{padding:'12px',background:'rgba(251,191,36,0.06)',borderRadius:10,border:'0.5px solid rgba(251,191,36,0.2)',marginBottom:10}}>
-                    <div style={{fontSize:13,marginBottom:8}}>
-                      <span style={{fontWeight:500,color:'#fbbf24'}}>{s.requester?.name}</span>
-                      <span style={{color:D.muted}}> wants to swap shifts on </span>
-                      <span style={{fontWeight:500}}>{s.swap_date}</span>
-                    </div>
-                    <div style={{fontSize:12,color:D.muted,marginBottom:10}}>
-                      Their shift: <span style={{color:D.text}}>{s.requester_shift}</span> ↔ Your shift: <span style={{color:D.text}}>{s.target_shift}</span>
-                      {s.notes && <span style={{marginLeft:8}}>· "{s.notes}"</span>}
-                    </div>
-                    <div style={{display:'flex',gap:8}}>
-                      <button style={btn('#166534',false)} onClick={()=>respondToSwap(s.id,true)}>✓ Accept</button>
-                      <button style={btn('#991b1b',false)} onClick={()=>respondToSwap(s.id,false)}>✕ Decline</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div style={card}>
-              <div style={{fontSize:14,fontWeight:500,marginBottom:14}}>Request a shift swap</div>
-              <form onSubmit={submitSwap}>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-                  <div>
-                    <label style={{fontSize:12,fontWeight:500,color:D.muted,display:'block',marginBottom:5}}>Swap with</label>
-                    <select value={swapForm.target_id} onChange={e=>setSwapForm(f=>({...f,target_id:e.target.value}))} required style={{...input}}>
-                      <option value="">Select a moderator…</option>
-                      {allMods.filter(m=>m.id!==uid).map(m=>(
-                        <option key={m.id} value={m.id}>{m.name} ({m.shift})</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{fontSize:12,fontWeight:500,color:D.muted,display:'block',marginBottom:5}}>Date</label>
-                    <input type="date" value={swapForm.swap_date} onChange={e=>setSwapForm(f=>({...f,swap_date:e.target.value}))} required style={input} />
-                  </div>
-                </div>
-                <div style={{marginBottom:14}}>
-                  <label style={{fontSize:12,fontWeight:500,color:D.muted,display:'block',marginBottom:5}}>Notes (optional)</label>
-                  <input type="text" value={swapForm.notes} onChange={e=>setSwapForm(f=>({...f,notes:e.target.value}))} placeholder="Reason for swap…" style={input} />
-                </div>
-                {swapMsg && <div style={{padding:'9px 12px',borderRadius:8,fontSize:13,marginBottom:12,background:swapMsg.startsWith('ok')?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)',color:swapMsg.startsWith('ok')?'#4ade80':'#f87171'}}>{swapMsg.split(':')[1]}</div>}
-                <button type="submit" style={btn('#1e40af',false)}>Send swap request</button>
-              </form>
-            </div>
-
-            <div style={card}>
-              <div style={{fontSize:14,fontWeight:500,marginBottom:12}}>Swap history</div>
-              {swaps.filter(s=>s.target_response!=='pending'||s.requester_id===uid).length===0 && <div style={{fontSize:13,color:D.muted}}>No swaps yet.</div>}
-              {swaps.map(s=>{
-                const isRequester = s.requester_id === uid
-                const otherName = isRequester ? s.target?.name : s.requester?.name
-                const statusColor = s.status==='approved'?'#4ade80':s.status==='declined'?'#f87171':s.target_response==='accepted'?'#60a5fa':'#fbbf24'
-                const statusLabel = s.status==='approved'?'Approved':s.status==='declined'?'Declined':s.target_response==='accepted'?'Waiting admin':s.target_response==='pending'?'Pending':'Declined'
-                return (
-                  <div key={s.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:`0.5px solid ${D.border}`,fontSize:13}}>
-                    <div>
-                      <span style={{color:D.muted}}>{isRequester?'You → ':'From '}</span>
-                      <span style={{fontWeight:500}}>{otherName}</span>
-                      <span style={{color:D.muted}}> · {s.swap_date}</span>
-                    </div>
-                    {badge(`rgba(255,255,255,0.05)`,statusColor,statusLabel)}
-                  </div>
-                )
-              })}
-            </div>
-          </>}
-
-          {page === 'profile' && (
-            <div style={card}>
-              <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:18}}>
-                <div style={{width:52,height:52,borderRadius:'50%',background:sc[0],display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:600,color:sc[1]}}>
-                  {profile.name.slice(0,2).toUpperCase()}
-                </div>
-                <div>
-                  <div style={{fontSize:17,fontWeight:500,marginBottom:3}}>{profile.name}</div>
-                  <div style={{fontSize:13,color:D.muted}}>{profile.role} · {profile.shift} shift</div>
-                </div>
-              </div>
-              <div style={{borderTop:`0.5px solid ${D.border}`,paddingTop:14}}>
-                {[['Shift hours','09:00–17:00 UTC+1'],['Vacation used',profile.vacation_used+' / '+profile.vacation_allowance+' days'],['Remaining',(profile.vacation_allowance-profile.vacation_used)+' days'],['Status',profile.status]].map(([k,v])=>(
-                  <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'9px 0',borderBottom:`0.5px solid ${D.border}`,fontSize:13}}>
-                    <span style={{color:D.muted}}>{k}</span><span style={{fontWeight:500}}>{v}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
+            <div style={s.vacLabel}>Remaining</div>
+          </div>
         </div>
       </div>
     </div>
   )
+}
+
+// ─── Page: Attendance ─────────────────────────────────────────────────────────
+function PageAttendance({ userId }) {
+  const [records, setRecords] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter]   = useState('week')
+
+  useEffect(() => { load() }, [filter])
+
+  async function load() {
+    setLoading(true)
+    const now = new Date()
+    let from
+    if (filter === 'today') {
+      from = new Date(now); from.setHours(0,0,0,0)
+    } else if (filter === 'week') {
+      from = new Date(now); from.setDate(now.getDate() - 7)
+    } else {
+      from = new Date(now.getFullYear(), now.getMonth(), 1)
+    }
+    const { data } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('clock_in', from.toISOString())
+      .order('clock_in', { ascending: false })
+    setRecords(data || [])
+    setLoading(false)
+  }
+
+  function duration(ci, co) {
+    if (!co) return <span style={{color:'#34d399'}}>Active</span>
+    const mins = Math.round((new Date(co) - new Date(ci)) / 60000)
+    const h = Math.floor(mins/60), m = mins%60
+    return `${h}h ${m}m`
+  }
+
+  return (
+    <div style={s.content}>
+      <div style={s.pageHead}>
+        <h1 style={s.pageTitle}>My Attendance</h1>
+        <div style={s.filterRow}>
+          {['today','week','month'].map(f => (
+            <button key={f} style={{...s.filterBtn,...(filter===f?s.filterActive:{})}} onClick={() => setFilter(f)}>
+              {f.charAt(0).toUpperCase()+f.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={s.card}>
+        {loading ? <div style={s.empty}>Loading…</div> : records.length === 0 ? (
+          <div style={s.empty}>No records for this period.</div>
+        ) : (
+          <div style={{overflowX:'auto'}}>
+            <table style={s.table}>
+              <thead>
+                <tr>{['Date','Clock In','Lunch Start','Lunch End','Clock Out','Duration','Status'].map(h => (
+                  <th key={h} style={s.th}>{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody>
+                {records.map(r => (
+                  <tr key={r.id}>
+                    <td style={s.td}>{fmtDate(r.clock_in)}</td>
+                    <td style={s.td}>{fmtTime(r.clock_in)}</td>
+                    <td style={s.td}>{fmtTime(r.lunch_start)}</td>
+                    <td style={s.td}>{fmtTime(r.lunch_end)}</td>
+                    <td style={s.td}>{fmtTime(r.clock_out)}</td>
+                    <td style={s.td}>{duration(r.clock_in, r.clock_out)}</td>
+                    <td style={s.td}>
+                      <span style={{...s.pill, ...pillColor(r.status)}}>{r.status || 'done'}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Page: Vacation ───────────────────────────────────────────────────────────
+function PageVacation({ userId, profile, onProfileRefresh }) {
+  const [requests, setRequests] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm]         = useState({ start_date: '', end_date: '' })
+  const [saving, setSaving]     = useState(false)
+  const [warnings, setWarnings] = useState([])
+  const [formError, setFormError] = useState(null)
+
+  useEffect(() => { loadRequests() }, [])
+
+  async function loadRequests() {
+    const { data } = await supabase
+      .from('vacation_requests')
+      .select('*')
+      .eq('user_id', userId)
+      .order('submitted_at', { ascending: false })
+    setRequests(data || [])
+    setLoading(false)
+  }
+
+  function validateRequest() {
+    const warns = []
+    const start = new Date(form.start_date)
+    const end   = new Date(form.end_date)
+    const today = new Date(); today.setHours(0,0,0,0)
+    const days  = businessDays(start, end)
+    const notice = Math.ceil((start - today) / 86400000)
+    const remaining = (profile?.vacation_allowance ?? 15) - (profile?.vacation_used ?? 0) - (profile?.vacation_pending ?? 0)
+
+    if (days > remaining) warns.push(`⚠️ Requesting ${days} days but only ${remaining} remaining.`)
+    if (days > 5)         warns.push(`⚠️ Maximum 5 consecutive days allowed (requesting ${days}).`)
+    if (notice < 21)      warns.push(`⚠️ Minimum 21 days notice required (you have ${notice} days).`)
+    if (end < start)      warns.push(`⚠️ End date must be after start date.`)
+
+    setWarnings(warns)
+    return { days, valid: warns.length === 0 }
+  }
+
+  async function submitRequest() {
+    setFormError(null)
+    const { days, valid } = validateRequest()
+    if (!valid && warnings.length > 0) {
+      // Allow submission with warnings (admin sees them)
+    }
+    if (!form.start_date || !form.end_date) { setFormError('Please select both dates.'); return }
+
+    setSaving(true)
+    const { error } = await supabase.from('vacation_requests').insert({
+      user_id: userId,
+      start_date: form.start_date,
+      end_date: form.end_date,
+      days_requested: days,
+      status: 'pending',
+      submitted_at: new Date().toISOString(),
+      validation_warnings: warnings,
+    })
+    if (error) { setFormError(error.message); setSaving(false); return }
+
+    // Update pending count
+    await supabase.from('profiles').update({ vacation_pending: (profile?.vacation_pending ?? 0) + days }).eq('id', userId)
+    setShowForm(false)
+    setForm({ start_date:'', end_date:'' })
+    setWarnings([])
+    loadRequests()
+    onProfileRefresh()
+    setSaving(false)
+  }
+
+  const statusColor = { pending:'#f59e0b', approved:'#34d399', declined:'#f87171' }
+
+  return (
+    <div style={s.content}>
+      <div style={s.pageHead}>
+        <h1 style={s.pageTitle}>Vacation Requests</h1>
+        <button style={s.btnPrimary} onClick={() => setShowForm(f=>!f)}>
+          {showForm ? 'Cancel' : '+ New Request'}
+        </button>
+      </div>
+
+      {/* Balance */}
+      <div style={s.card}>
+        <div style={s.cardHead}><span style={s.cardTitle}>My Balance</span></div>
+        <div style={s.vacRow}>
+          <div style={s.vacItem}><div style={s.vacNum}>{profile?.vacation_allowance ?? 15}</div><div style={s.vacLabel}>Allowance</div></div>
+          <div style={s.vacItem}><div style={{...s.vacNum,color:'#f87171'}}>{profile?.vacation_used ?? 0}</div><div style={s.vacLabel}>Used</div></div>
+          <div style={s.vacItem}><div style={{...s.vacNum,color:'#f59e0b'}}>{profile?.vacation_pending ?? 0}</div><div style={s.vacLabel}>Pending</div></div>
+          <div style={s.vacItem}>
+            <div style={{...s.vacNum,color:'#34d399'}}>
+              {(profile?.vacation_allowance??15)-(profile?.vacation_used??0)-(profile?.vacation_pending??0)}
+            </div>
+            <div style={s.vacLabel}>Remaining</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Form */}
+      {showForm && (
+        <div style={s.card}>
+          <div style={s.cardHead}><span style={s.cardTitle}>New Vacation Request</span></div>
+          <div style={s.formGrid}>
+            <div style={s.formGroup}>
+              <label style={s.label}>Start Date</label>
+              <input style={s.input} type="date" value={form.start_date}
+                onChange={e => { setForm(f=>({...f,start_date:e.target.value})); setWarnings([]) }}/>
+            </div>
+            <div style={s.formGroup}>
+              <label style={s.label}>End Date</label>
+              <input style={s.input} type="date" value={form.end_date}
+                onChange={e => { setForm(f=>({...f,end_date:e.target.value})); setWarnings([]) }}/>
+            </div>
+          </div>
+          {form.start_date && form.end_date && (
+            <div style={{marginTop:12}}>
+              <button style={{...s.filterBtn, marginBottom:12}} onClick={validateRequest}>Check Eligibility</button>
+              {warnings.map((w,i) => <div key={i} style={s.warnBox}>{w}</div>)}
+              {warnings.length === 0 && form.start_date && form.end_date && (
+                <div style={s.successBox}>✓ {businessDays(new Date(form.start_date), new Date(form.end_date))} business days — eligible to submit.</div>
+              )}
+            </div>
+          )}
+          {formError && <div style={s.errorBox}>{formError}</div>}
+          <button style={{...s.btnPrimary, marginTop:16}} disabled={saving} onClick={submitRequest}>
+            {saving ? 'Submitting…' : 'Submit Request'}
+          </button>
+        </div>
+      )}
+
+      {/* History */}
+      <div style={s.card}>
+        <div style={s.cardHead}><span style={s.cardTitle}>My Requests</span></div>
+        {loading ? <div style={s.empty}>Loading…</div> : requests.length === 0 ? (
+          <div style={s.empty}>No vacation requests yet.</div>
+        ) : requests.map(r => (
+          <div key={r.id} style={s.requestRow}>
+            <div style={{flex:1}}>
+              <div style={s.requestDates}>{fmtDate(r.start_date)} → {fmtDate(r.end_date)}</div>
+              <div style={s.requestMeta}>
+                {r.days_requested} days · Submitted {fmtDate(r.submitted_at)}
+                {r.admin_notes && <span style={{color:'#94a3b8'}}> · Note: {r.admin_notes}</span>}
+              </div>
+            </div>
+            <span style={{...s.pill, background:(statusColor[r.status]||'#94a3b8')+'22', color:statusColor[r.status]||'#94a3b8'}}>
+              {r.status}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Page: Shift Swaps ────────────────────────────────────────────────────────
+function PageSwaps({ userId, profile }) {
+  const [swaps, setSwaps]       = useState([])
+  const [mods, setMods]         = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm]         = useState({ target_id:'', swap_date:'', notes:'' })
+  const [saving, setSaving]     = useState(false)
+  const [formError, setFormError] = useState(null)
+
+  useEffect(() => { loadAll() }, [])
+
+  async function loadAll() {
+    const [{ data: sw }, { data: ms }] = await Promise.all([
+      supabase.from('shift_swaps').select('*, requester:profiles!requester_id(name,shift), target:profiles!target_id(name,shift)')
+        .or(`requester_id.eq.${userId},target_id.eq.${userId}`).order('created_at', { ascending: false }),
+      supabase.from('profiles').select('id,name,shift').eq('role','mod').neq('id', userId)
+    ])
+    setSwaps(sw || [])
+    setMods(ms || [])
+    setLoading(false)
+  }
+
+  async function submitSwap() {
+    if (!form.target_id || !form.swap_date) { setFormError('Please fill all fields.'); return }
+    setSaving(true)
+    const target = mods.find(m => m.id === form.target_id)
+    const { error } = await supabase.from('shift_swaps').insert({
+      requester_id: userId,
+      target_id: form.target_id,
+      requester_shift: profile?.shift,
+      target_shift: target?.shift,
+      swap_date: form.swap_date,
+      notes: form.notes,
+      status: 'pending',
+    })
+    if (error) { setFormError(error.message); setSaving(false); return }
+    setShowForm(false)
+    setForm({ target_id:'', swap_date:'', notes:'' })
+    loadAll()
+    setSaving(false)
+  }
+
+  async function respondToSwap(id, response) {
+    await supabase.from('shift_swaps').update({ target_response: response, status: response === 'accepted' ? 'pending_admin' : 'declined' }).eq('id', id)
+    loadAll()
+  }
+
+  const statusColor = { pending:'#f59e0b', pending_admin:'#60a5fa', approved:'#34d399', declined:'#f87171' }
+
+  return (
+    <div style={s.content}>
+      <div style={s.pageHead}>
+        <h1 style={s.pageTitle}>Shift Swaps</h1>
+        <button style={s.btnPrimary} onClick={() => setShowForm(f=>!f)}>
+          {showForm ? 'Cancel' : '+ Request Swap'}
+        </button>
+      </div>
+
+      {showForm && (
+        <div style={s.card}>
+          <div style={s.cardHead}><span style={s.cardTitle}>New Swap Request</span></div>
+          {formError && <div style={s.errorBox}>{formError}</div>}
+          <div style={s.formGrid}>
+            <div style={s.formGroup}>
+              <label style={s.label}>Swap With</label>
+              <select style={s.input} value={form.target_id} onChange={e => setForm(f=>({...f,target_id:e.target.value}))}>
+                <option value="">Select moderator…</option>
+                {mods.map(m => <option key={m.id} value={m.id}>{m.name} ({m.shift})</option>)}
+              </select>
+            </div>
+            <div style={s.formGroup}>
+              <label style={s.label}>Swap Date</label>
+              <input style={s.input} type="date" value={form.swap_date} onChange={e => setForm(f=>({...f,swap_date:e.target.value}))}/>
+            </div>
+          </div>
+          <div style={s.formGroup}>
+            <label style={s.label}>Notes (optional)</label>
+            <input style={s.input} value={form.notes} onChange={e => setForm(f=>({...f,notes:e.target.value}))} placeholder="Reason for swap…"/>
+          </div>
+          <button style={{...s.btnPrimary, marginTop:16}} disabled={saving} onClick={submitSwap}>
+            {saving ? 'Sending…' : 'Send Request'}
+          </button>
+        </div>
+      )}
+
+      <div style={s.card}>
+        <div style={s.cardHead}><span style={s.cardTitle}>My Swap Requests</span></div>
+        {loading ? <div style={s.empty}>Loading…</div> : swaps.length === 0 ? (
+          <div style={s.empty}>No swap requests yet.</div>
+        ) : swaps.map(r => {
+          const isTarget = r.target_id === userId
+          const isPending = r.status === 'pending' && isTarget
+          return (
+            <div key={r.id} style={s.requestRow}>
+              <div style={{flex:1}}>
+                <div style={s.requestDates}>
+                  {r.requester?.name} ↔ {r.target?.name} · {fmtDate(r.swap_date)}
+                </div>
+                <div style={s.requestMeta}>
+                  {r.requester?.shift} ↔ {r.target?.shift}
+                  {r.notes && ` · ${r.notes}`}
+                </div>
+              </div>
+              {isPending ? (
+                <div style={{display:'flex',gap:8}}>
+                  <button style={s.btnSmGreen} onClick={() => respondToSwap(r.id,'accepted')}>Accept</button>
+                  <button style={s.btnSmRed}   onClick={() => respondToSwap(r.id,'declined')}>Decline</button>
+                </div>
+              ) : (
+                <span style={{...s.pill, background:(statusColor[r.status]||'#94a3b8')+'22', color:statusColor[r.status]||'#94a3b8'}}>
+                  {r.status}
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Page: Profile ────────────────────────────────────────────────────────────
+function PageProfile({ userId, profile, onRefresh }) {
+  const [form, setForm]   = useState({ name:'', username:'', birthday:'' })
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved]   = useState(false)
+
+  useEffect(() => {
+    if (profile) setForm({ name: profile.name||'', username: profile.username||'', birthday: profile.birthday||'' })
+  }, [profile])
+
+  async function save() {
+    setSaving(true)
+    await supabase.from('profiles').update({ name: form.name, username: form.username, birthday: form.birthday }).eq('id', userId)
+    setSaving(false); setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+    onRefresh()
+  }
+
+  return (
+    <div style={s.content}>
+      <h1 style={s.pageTitle}>My Profile</h1>
+      <div style={s.card}>
+        <div style={s.cardHead}><span style={s.cardTitle}>Profile Information</span></div>
+        <div style={s.formGrid}>
+          <div style={s.formGroup}>
+            <label style={s.label}>Full Name</label>
+            <input style={s.input} value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))}/>
+          </div>
+          <div style={s.formGroup}>
+            <label style={s.label}>Username</label>
+            <input style={s.input} value={form.username} onChange={e => setForm(f=>({...f,username:e.target.value}))}/>
+          </div>
+          <div style={s.formGroup}>
+            <label style={s.label}>Date of Birth</label>
+            <input style={s.input} type="date" value={form.birthday} onChange={e => setForm(f=>({...f,birthday:e.target.value}))}/>
+          </div>
+          <div style={s.formGroup}>
+            <label style={s.label}>Shift</label>
+            <input style={{...s.input, opacity:0.5}} value={profile?.shift||'—'} disabled/>
+          </div>
+          <div style={s.formGroup}>
+            <label style={s.label}>Role</label>
+            <input style={{...s.input, opacity:0.5}} value={profile?.role||'—'} disabled/>
+          </div>
+          <div style={s.formGroup}>
+            <label style={s.label}>Status</label>
+            <input style={{...s.input, opacity:0.5}} value={profile?.status||'active'} disabled/>
+          </div>
+        </div>
+        <button style={{...s.btnPrimary, marginTop:20}} disabled={saving} onClick={save}>
+          {saved ? '✓ Saved' : saving ? 'Saving…' : 'Save Changes'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Page: Birthdays ──────────────────────────────────────────────────────────
+function PageBirthdays() {
+  const [people, setPeople] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.from('profiles').select('id,name,birthday,shift').eq('role','mod').not('birthday','is',null)
+      .then(({ data }) => {
+        const today = new Date(); today.setHours(0,0,0,0)
+        const enriched = (data||[]).map(p => {
+          const bday = new Date(p.birthday)
+          const next = new Date(today.getFullYear(), bday.getMonth(), bday.getDate())
+          if (next < today) next.setFullYear(today.getFullYear()+1)
+          return { ...p, daysUntil: Math.ceil((next-today)/86400000), nextBirthday: next }
+        }).sort((a,b) => a.daysUntil - b.daysUntil)
+        setPeople(enriched)
+        setLoading(false)
+      })
+  }, [])
+
+  const todays   = people.filter(p => p.daysUntil === 0)
+  const upcoming = people.filter(p => p.daysUntil > 0 && p.daysUntil <= 30)
+
+  return (
+    <div style={s.content}>
+      <h1 style={s.pageTitle}>Birthday Center</h1>
+      {todays.length > 0 && (
+        <div style={{...s.card, border:'1px solid #f59e0b44', background:'#f59e0b0a'}}>
+          <div style={s.cardHead}><span style={s.cardTitle}>🎂 Today's Birthdays</span></div>
+          {todays.map(p => (
+            <div key={p.id} style={s.birthdayRow}>
+              <div style={s.modAvatar}>{p.name[0].toUpperCase()}</div>
+              <div><div style={s.modName}>{p.name}</div><div style={s.requestMeta}>{p.shift}</div></div>
+              <span style={{color:'#f59e0b', fontWeight:600}}>🎉 Today!</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={s.card}>
+        <div style={s.cardHead}><span style={s.cardTitle}>Upcoming Birthdays (Next 30 Days)</span></div>
+        {loading ? <div style={s.empty}>Loading…</div> : upcoming.length === 0 ? (
+          <div style={s.empty}>No birthdays in the next 30 days.</div>
+        ) : upcoming.map(p => (
+          <div key={p.id} style={s.birthdayRow}>
+            <div style={s.modAvatar}>{p.name[0].toUpperCase()}</div>
+            <div style={{flex:1}}>
+              <div style={s.modName}>{p.name}</div>
+              <div style={s.requestMeta}>{p.nextBirthday.toLocaleDateString('en-GB',{day:'numeric',month:'long'})}</div>
+            </div>
+            <span style={{...s.pill, background:'#3b82f622', color:'#60a5fa'}}>
+              {p.daysUntil === 1 ? 'Tomorrow' : `In ${p.daysUntil} days`}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Pill helper ──────────────────────────────────────────────────────────────
+function pillColor(status) {
+  const map = {
+    working:  { background:'#34d39922', color:'#34d399' },
+    lunch:    { background:'#f59e0b22', color:'#f59e0b' },
+    done:     { background:'#94a3b822', color:'#94a3b8' },
+    pending:  { background:'#f59e0b22', color:'#f59e0b' },
+    approved: { background:'#34d39922', color:'#34d399' },
+    declined: { background:'#f87171'+'22', color:'#f87171' },
+  }
+  return map[status] || { background:'#94a3b822', color:'#94a3b8' }
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+export default function Dashboard() {
+  const [session, setSession]     = useState(null)
+  const [profile, setProfile]     = useState(null)
+  const [attendance, setAttendance] = useState(null)
+  const [page, setPage]           = useState('home')
+  const [loading, setLoading]     = useState(true)
+  const [busy, setBusy]           = useState(false)
+  const [error, setError]         = useState(null)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { window.location.href = '/'; return }
+      setSession(session)
+      await loadProfile(session.user.id)
+      await loadAttendance(session.user.id)
+      setLoading(false)
+    })
+  }, [])
+
+  async function loadProfile(uid) {
+    const { data } = await supabase.from('profiles').select('*').eq('id', uid).single()
+    if (data?.role === 'admin') { window.location.href = '/admin'; return }
+    setProfile(data)
+  }
+
+  async function loadAttendance(uid) {
+    const { data } = await supabase.from('attendance').select('*').eq('user_id', uid)
+      .is('clock_out', null).order('clock_in', { ascending: false }).limit(1).maybeSingle()
+    setAttendance(data)
+  }
+
+  async function handleAction(action) {
+    setBusy(true); setError(null)
+    try {
+      const res = await fetch(`/api/attendance?action=${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: session.user.id }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Error')
+      await loadAttendance(session.user.id)
+    } catch (e) { setError(e.message) }
+    finally { setBusy(false) }
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut(); window.location.href = '/'
+  }
+
+  if (loading) return <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#0f1117',color:'#4a5568',fontFamily:'system-ui'}}>Loading…</div>
+
+  return (
+    <>
+      <style>{`*{box-sizing:border-box}body{margin:0}input,select{color-scheme:dark}`}</style>
+      <Layout profile={profile} page={page} setPage={setPage} onLogout={handleLogout}>
+        {page === 'home'       && <PageHome profile={profile} attendance={attendance} onAction={handleAction} busy={busy} error={error}/>}
+        {page === 'attendance' && <PageAttendance userId={session?.user.id}/>}
+        {page === 'vacation'   && <PageVacation userId={session?.user.id} profile={profile} onProfileRefresh={() => loadProfile(session.user.id)}/>}
+        {page === 'swaps'      && <PageSwaps userId={session?.user.id} profile={profile}/>}
+        {page === 'profile'    && <PageProfile userId={session?.user.id} profile={profile} onRefresh={() => loadProfile(session.user.id)}/>}
+        {page === 'birthdays'  && <PageBirthdays/>}
+      </Layout>
+    </>
+  )
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const s = {
+  root:       { display:'flex', minHeight:'100vh', background:'#0f1117', color:'#e2e8f0', fontFamily:"'Inter',system-ui,sans-serif" },
+  sidebar:    { width:230, background:'#0a0d14', borderRight:'1px solid #1e2433', display:'flex', flexDirection:'column', flexShrink:0, position:'sticky', top:0, height:'100vh' },
+  sideTop:    { padding:'20px 16px 12px' },
+  logoRow:    { display:'flex', alignItems:'center', gap:8, marginBottom:4 },
+  logoIcon:   { width:30, height:30, background:'linear-gradient(135deg,#3b82f6,#8b5cf6)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:800, color:'#fff' },
+  logoText:   { fontSize:'0.95rem', fontWeight:700, letterSpacing:'-0.02em', color:'#f8fafc' },
+  roleLabel:  { fontSize:'0.7rem', color:'#4a5568', paddingLeft:38 },
+  userLabel:  { fontSize:'0.72rem', color:'#64748b', paddingLeft:38, marginTop:2 },
+  nav:        { padding:'8px', flex:1 },
+  navItem:    { display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:8, cursor:'pointer', fontSize:'0.83rem', color:'#94a3b8', marginBottom:2 },
+  navActive:  { background:'#1e2433', color:'#f1f5f9' },
+  sideBottom: { padding:'12px 8px', borderTop:'1px solid #1e2433' },
+  logoutBtn:  { display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:8, cursor:'pointer', fontSize:'0.83rem', color:'#64748b', width:'100%', background:'none', border:'none' },
+  main:       { flex:1, overflow:'auto' },
+  content:    { padding:'32px 36px', maxWidth:1000, margin:'0 auto' },
+  pageHead:   { display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 },
+  pageTitle:  { fontSize:'1.3rem', fontWeight:700, margin:'0 0 24px', letterSpacing:'-0.02em', color:'#f8fafc' },
+  card:       { background:'#141820', border:'1px solid #1e2433', borderRadius:12, padding:'20px 22px', marginBottom:20 },
+  cardHead:   { display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 },
+  cardTitle:  { fontSize:'0.88rem', fontWeight:600, color:'#f1f5f9' },
+  empty:      { color:'#4a5568', fontSize:'0.85rem', padding:'12px 0' },
+  shiftGrid:  { display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:24 },
+  shiftItem:  { },
+  shiftLabel: { fontSize:'0.7rem', color:'#4a5568', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:4 },
+  shiftValue: { fontSize:'0.9rem', fontWeight:500, color:'#e2e8f0' },
+  statusBadge:{ fontSize:'0.72rem', fontWeight:600, padding:'5px 12px', borderRadius:20 },
+  actions:    { display:'flex', gap:10, flexWrap:'wrap' },
+  btn:        { display:'flex', alignItems:'center', gap:7, padding:'10px 18px', borderRadius:8, border:'none', fontSize:'0.84rem', fontWeight:600, cursor:'pointer' },
+  btnGreen:   { background:'#16a34a', color:'#fff' },
+  btnAmber:   { background:'#d97706', color:'#fff' },
+  btnBlue:    { background:'#2563eb', color:'#fff' },
+  btnRed:     { background:'#dc2626', color:'#fff' },
+  btnPrimary: { background:'#3b82f6', color:'#fff', border:'none', borderRadius:8, padding:'9px 18px', fontSize:'0.83rem', fontWeight:600, cursor:'pointer' },
+  btnSmGreen: { background:'#16a34a22', color:'#34d399', border:'1px solid #16a34a44', padding:'4px 12px', borderRadius:6, cursor:'pointer', fontSize:'0.78rem', fontWeight:600 },
+  btnSmRed:   { background:'#dc262622', color:'#f87171', border:'1px solid #dc262644', padding:'4px 12px', borderRadius:6, cursor:'pointer', fontSize:'0.78rem', fontWeight:600 },
+  errorBox:   { background:'#dc262622', border:'1px solid #dc262644', color:'#f87171', fontSize:'0.8rem', padding:'10px 14px', borderRadius:8, marginBottom:16 },
+  warnBox:    { background:'#f59e0b22', border:'1px solid #f59e0b44', color:'#f59e0b', fontSize:'0.8rem', padding:'8px 12px', borderRadius:8, marginBottom:8 },
+  successBox: { background:'#34d39922', border:'1px solid #34d39944', color:'#34d399', fontSize:'0.8rem', padding:'8px 12px', borderRadius:8, marginBottom:8 },
+  vacRow:     { display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16 },
+  vacItem:    { textAlign:'center' },
+  vacNum:     { fontSize:'2rem', fontWeight:700, color:'#f8fafc', lineHeight:1 },
+  vacLabel:   { fontSize:'0.7rem', color:'#4a5568', textTransform:'uppercase', letterSpacing:'0.06em', marginTop:6 },
+  table:      { width:'100%', borderCollapse:'collapse' },
+  th:         { textAlign:'left', fontSize:'0.7rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', paddingBottom:10, borderBottom:'1px solid #1e2433', paddingRight:16 },
+  td:         { padding:'11px 16px 11px 0', fontSize:'0.83rem', color:'#e2e8f0', borderBottom:'1px solid #0f1117' },
+  pill:       { fontSize:'0.72rem', fontWeight:600, padding:'3px 10px', borderRadius:20 },
+  filterRow:  { display:'flex', gap:6 },
+  filterBtn:  { background:'transparent', border:'1px solid #2d3748', color:'#94a3b8', borderRadius:6, padding:'6px 14px', fontSize:'0.78rem', cursor:'pointer' },
+  filterActive:{ background:'#1e2433', color:'#f1f5f9', borderColor:'#334155' },
+  formGrid:   { display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 },
+  formGroup:  { display:'flex', flexDirection:'column', gap:6 },
+  label:      { fontSize:'0.75rem', color:'#94a3b8', fontWeight:500 },
+  input:      { background:'#0f1117', border:'1px solid #2d3748', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:'0.85rem', outline:'none', fontFamily:'inherit' },
+  requestRow: { display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #1e2433' },
+  requestDates:{ fontSize:'0.85rem', fontWeight:500, marginBottom:3 },
+  requestMeta:{ fontSize:'0.75rem', color:'#64748b' },
+  modAvatar:  { width:34, height:34, borderRadius:'50%', background:'linear-gradient(135deg,#3b82f6,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.85rem', fontWeight:700, flexShrink:0 },
+  modName:    { fontSize:'0.85rem', fontWeight:500 },
+  birthdayRow:{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:'1px solid #1e2433' },
 }

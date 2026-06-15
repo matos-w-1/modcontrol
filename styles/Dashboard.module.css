@@ -1,0 +1,98 @@
+.page {
+  min-height: 100vh;
+  background: #0f1117;
+  color: #e2e8f0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  color: #4a5568;
+  font-size: 0.9rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
+  border-bottom: 1px solid #1e2433;
+  background: #0a0d14;
+}
+
+.logo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.name { font-size: 0.85rem; color: #94a3b8; }
+
+.logoutBtn {
+  background: transparent;
+  border: 1px solid #2d3748;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.main {
+  display: flex;
+  justify-content: center;
+  padding: 48px 20px;
+}
+
+.card {
+  background: #141820;
+  border: 1px solid #1e2433;
+  border-radius: 12px;
+  padding: 32px 36px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.card h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.since { font-size: 0.85rem; color: #94a3b8; margin: 0 0 20px; }
+.lunchTag { color: #f59e0b; }
+.error { font-size: 0.8rem; color: #f87171; margin: 0 0 16px; }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.btn {
+  flex: 1;
+  min-width: 100px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btnGreen  { background: #16a34a; color: #fff; }
+.btnAmber  { background: #d97706; color: #fff; }
+.btnRed    { background: #dc2626; color: #fff; }
+
+.btnGreen:not(:disabled):hover  { background: #15803d; }
+.btnAmber:not(:disabled):hover  { background: #b45309; }
+.btnRed:not(:disabled):hover    { background: #b91c1c; }
