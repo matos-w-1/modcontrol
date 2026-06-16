@@ -42,23 +42,26 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST' && action === 'create_mod') {
-    const { name, email, password, shift, birthday } = req.body
-    if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password are required' })
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email, password, email_confirm: true,
-    })
-    if (authError) return res.status(500).json({ error: authError.message })
-    const { error: profileError } = await supabase.from('profiles').upsert({
-      id: authData.user.id, name, email, role: 'mod', shift: shift||null,
-      birthday: birthday||null, status: 'active', vacation_allowance: 15,
-      vacation_used: 0, vacation_pending: 0, created_at: new Date().toISOString(),
-    })
-    if (profileError) {
-      await supabase.auth.admin.deleteUser(authData.user.id)
-      return res.status(500).json({ error: profileError.message })
-    }
-    return res.status(200).json({ ok: true, id: authData.user.id })
+  const { name, full_name, nickname, email, password, shift, birthday, timezone, discord_name, telegram_name, mod_group } = req.body
+  if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password are required' })
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email, password, email_confirm: true,
+  })
+  if (authError) return res.status(500).json({ error: authError.message })
+  const { error: profileError } = await supabase.from('profiles').upsert({
+    id: authData.user.id, name, full_name: full_name||null, nickname: nickname||null,
+    email, role: 'mod', shift: shift||null, birthday: birthday||null,
+    timezone: timezone||'UTC+1', discord_name: discord_name||null,
+    telegram_name: telegram_name||null, mod_group: mod_group||'english',
+    status: 'active', vacation_allowance: 15, vacation_used: 0, vacation_pending: 0,
+    created_at: new Date().toISOString(),
+  })
+  if (profileError) {
+    await supabase.auth.admin.deleteUser(authData.user.id)
+    return res.status(500).json({ error: profileError.message })
   }
+  return res.status(200).json({ ok: true, id: authData.user.id })
+}
 
   return res.status(400).json({ error: 'Unknown action' })
 }
