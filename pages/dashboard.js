@@ -39,8 +39,7 @@ function businessDays(start, end) {
 
 function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
   const [form, setForm] = useState({
-    total_tickets: '', mod_tickets: '', pending_tickets: '', pending_links: '',
-    important_tickets: '', important_links: '', locked_blacktide_rl: '',
+    locked_blacktide_rl: '',
     locked_blacktide_hunt: '', skin_manipulation: '', free_coin_abuser: '',
     phone_abuser: '', referral_abuser: '', notes: '',
     has_bug: false, has_exploit: false, dev_notes: '',
@@ -49,66 +48,60 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState(null)
 
-  useEffect(() => {
-  if (!attendanceId) return
-  supabase.from('shift_notes').select('*').eq('attendance_id', attendanceId)
-    .then(({data}) => {
-      if (!data || data.length===0) return
-      const grouped = {}
-      data.forEach(n => {
-        if (!grouped[n.type]) grouped[n.type] = []
-        grouped[n.type].push(n.value)
-      })
-      setForm(f=>({
-        ...f,
-        locked_blacktide_rl:  (grouped.locked_blacktide_rl||[]).join('\n'),
-        locked_blacktide_hunt:(grouped.locked_blacktide_hunt||[]).join('\n'),
-        skin_manipulation:    (grouped.skin_manipulation||[]).join('\n'),
-        free_coin_abuser:     (grouped.free_coin_abuser||[]).join('\n'),
-        phone_abuser:         (grouped.phone_abuser||[]).join('\n'),
-        referral_abuser:      (grouped.referral_abuser||[]).join('\n'),
-      }))
-    })
-}, [attendanceId])
-
   function set(key, val) { setForm(f => ({...f, [key]: val})) }
 
-  async function submit() {
-  setSaving(true); setError(null)
-  try {
-    const { data:reportData, error } = await supabase.from('daily_reports').insert({
-      user_id:              userId,
-      attendance_id:        attendanceId,
-      shift,
-      report_date:          new Date().toISOString().split('T')[0],
-      total_tickets:        parseInt(form.total_tickets)||0,
-      mod_tickets:          parseInt(form.mod_tickets)||0,
-      pending_tickets:      parseInt(form.pending_tickets)||0,
-      pending_links:        form.pending_links,
-      important_tickets:    parseInt(form.important_tickets)||0,
-      important_links:      form.important_links,
-      locked_blacktide_rl:  form.locked_blacktide_rl,
-      locked_blacktide_hunt:form.locked_blacktide_hunt,
-      skin_manipulation:    form.skin_manipulation,
-      free_coin_abuser:     form.free_coin_abuser,
-      phone_abuser:         form.phone_abuser,
-      referral_abuser:      form.referral_abuser,
-      notes:                form.notes,
-      has_bug:              form.has_bug,
-      has_exploit:          form.has_exploit,
-      dev_notes:            form.dev_notes,
-    }).select('id').single()
-    if (error) throw new Error(error.message)
-    if (form.applications.filter(a=>a.applicant_name).length > 0) {
-      await supabase.from('applications').insert(
-        form.applications.filter(a=>a.applicant_name).map(a=>({
-          ...a, submitted_by: userId, report_id: reportData?.id||null,
+  useEffect(() => {
+    if (!attendanceId) return
+    supabase.from('shift_notes').select('*').eq('attendance_id', attendanceId)
+      .then(({data}) => {
+        if (!data || data.length===0) return
+        const grouped = {}
+        data.forEach(n => {
+          if (!grouped[n.type]) grouped[n.type] = []
+          grouped[n.type].push(n.value)
+        })
+        setForm(f=>({
+          ...f,
+          locked_blacktide_rl:  (grouped.locked_blacktide_rl||[]).join('\n'),
+          locked_blacktide_hunt:(grouped.locked_blacktide_hunt||[]).join('\n'),
+          skin_manipulation:    (grouped.skin_manipulation||[]).join('\n'),
+          free_coin_abuser:     (grouped.free_coin_abuser||[]).join('\n'),
+          phone_abuser:         (grouped.phone_abuser||[]).join('\n'),
+          referral_abuser:      (grouped.referral_abuser||[]).join('\n'),
         }))
-      )
-    }
-    onSubmit()
-  } catch(e) { setError(e.message); setSaving(false) }
-}
+      })
+  }, [attendanceId])
+
+  async function submit() {
+    setSaving(true); setError(null)
+    try {
+      const { data:reportData, error } = await supabase.from('daily_reports').insert({
+        user_id:              userId,
+        attendance_id:        attendanceId,
+        shift,
+        report_date:          new Date().toISOString().split('T')[0],
+        locked_blacktide_rl:  form.locked_blacktide_rl,
+        locked_blacktide_hunt:form.locked_blacktide_hunt,
+        skin_manipulation:    form.skin_manipulation,
+        free_coin_abuser:     form.free_coin_abuser,
+        phone_abuser:         form.phone_abuser,
+        referral_abuser:      form.referral_abuser,
+        notes:                form.notes,
+        has_bug:              form.has_bug,
+        has_exploit:          form.has_exploit,
+        dev_notes:            form.dev_notes,
+      }).select('id').single()
+      if (error) throw new Error(error.message)
+      if (form.applications.filter(a=>a.applicant_name).length > 0) {
+        await supabase.from('applications').insert(
+          form.applications.filter(a=>a.applicant_name).map(a=>({
+            ...a, submitted_by: userId, report_id: reportData?.id||null,
+          }))
+        )
+      }
+      onSubmit()
+    } catch(e) { setError(e.message); setSaving(false) }
+  }
 
   return (
     <div style={p.overlay}>
@@ -124,19 +117,6 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
         </div>
         <div style={p.body}>
           {error && <div style={p.error}>{error}</div>}
-
-          {/* Intercom */}
-          <div style={p.section}>
-            <div style={p.sectionTitle}>🎧 Intercom Tickets</div>
-            <div style={p.grid2}>
-              <div style={p.field}><label style={p.label}>Total (shift)</label><input style={p.input} type="number" min="0" value={form.total_tickets} onChange={e=>set('total_tickets',e.target.value)} placeholder="0"/></div>
-              <div style={p.field}><label style={p.label}>My replies</label><input style={p.input} type="number" min="0" value={form.mod_tickets} onChange={e=>set('mod_tickets',e.target.value)} placeholder="0"/></div>
-              <div style={p.field}><label style={p.label}>Pending (count)</label><input style={p.input} type="number" min="0" value={form.pending_tickets} onChange={e=>set('pending_tickets',e.target.value)} placeholder="0"/></div>
-              <div style={p.field}><label style={p.label}>Important (count)</label><input style={p.input} type="number" min="0" value={form.important_tickets} onChange={e=>set('important_tickets',e.target.value)} placeholder="0"/></div>
-              <div style={p.field}><label style={p.label}>Pending — Links</label><textarea style={p.textarea} value={form.pending_links} onChange={e=>set('pending_links',e.target.value)} placeholder={'https://app.intercom.com/...\nhttps://app.intercom.com/...'}/></div>
-              <div style={p.field}><label style={p.label}>Important — Links</label><textarea style={p.textarea} value={form.important_links} onChange={e=>set('important_links',e.target.value)} placeholder={'https://app.intercom.com/...\nhttps://app.intercom.com/...'}/></div>
-            </div>
-          </div>
 
           {/* Locked Accounts */}
           <div style={p.section}>
@@ -182,35 +162,34 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
             </div>
           </div>
 
-{/* Applications */}
-<div style={p.section}>
-  <div style={p.sectionTitle}>👥 Staff / Dev Applications</div>
-  <div style={{fontSize:'0.78rem', color:'#64748b', marginBottom:10}}>Report any staff or developer applications received during your shift.</div>
-  {form.applications.map((app, i) => (
-    <div key={i} style={{background:'#0f1117', borderRadius:8, padding:12, marginBottom:10, border:'1px solid #2d3748'}}>
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
-        <span style={{fontSize:'0.78rem', fontWeight:600, color:'#94a3b8'}}>Application #{i+1}</span>
-        <span style={{cursor:'pointer', color:'#f87171', fontSize:'0.8rem'}} onClick={()=>setForm(f=>({...f, applications:f.applications.filter((_,j)=>j!==i)}))}>Remove</span>
-      </div>
-      <div style={p.grid2}>
-        <div style={p.field}><label style={p.label}>Name</label><input style={p.input} value={app.applicant_name} onChange={e=>setForm(f=>({...f, applications:f.applications.map((a,j)=>j===i?{...a,applicant_name:e.target.value}:a)}))}/></div>
-        <div style={p.field}><label style={p.label}>Type</label>
-          <select style={p.input} value={app.type} onChange={e=>setForm(f=>({...f, applications:f.applications.map((a,j)=>j===i?{...a,type:e.target.value}:a)}))}>
-            <option value="staff">Staff</option>
-            <option value="dev">Dev</option>
-          </select>
-        </div>
-        <div style={p.field}><label style={p.label}>Discord</label><input style={p.input} value={app.applicant_discord} onChange={e=>setForm(f=>({...f, applications:f.applications.map((a,j)=>j===i?{...a,applicant_discord:e.target.value}:a)}))}/></div>
-        <div style={p.field}><label style={p.label}>Telegram</label><input style={p.input} value={app.applicant_telegram} onChange={e=>setForm(f=>({...f, applications:f.applications.map((a,j)=>j===i?{...a,applicant_telegram:e.target.value}:a)}))}/></div>
-        <div style={{...p.field, gridColumn:'span 2'}}><label style={p.label}>Message</label><textarea style={p.textarea} value={app.message} onChange={e=>setForm(f=>({...f, applications:f.applications.map((a,j)=>j===i?{...a,message:e.target.value}:a)}))}/></div>
-      </div>
-    </div>
-  ))}
-  <button style={{...p.btnSkip, fontSize:'0.78rem', marginTop:4}} onClick={()=>setForm(f=>({...f, applications:[...f.applications, {applicant_name:'', type:'staff', applicant_discord:'', applicant_telegram:'', message:''}]}))}>
-    + Add Application
-  </button>
-</div>
-
+          {/* Applications */}
+          <div style={p.section}>
+            <div style={p.sectionTitle}>👥 Staff / Dev Applications</div>
+            <div style={{fontSize:'0.78rem', color:'#64748b', marginBottom:10}}>Report any staff or developer applications received during your shift.</div>
+            {form.applications.map((app, i) => (
+              <div key={i} style={{background:'#0f1117', borderRadius:8, padding:12, marginBottom:10, border:'1px solid #2d3748'}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+                  <span style={{fontSize:'0.78rem', fontWeight:600, color:'#94a3b8'}}>Application #{i+1}</span>
+                  <span style={{cursor:'pointer', color:'#f87171', fontSize:'0.8rem'}} onClick={()=>setForm(f=>({...f, applications:f.applications.filter((_,j)=>j!==i)}))}>Remove</span>
+                </div>
+                <div style={p.grid2}>
+                  <div style={p.field}><label style={p.label}>Name</label><input style={p.input} value={app.applicant_name} onChange={e=>setForm(f=>({...f, applications:f.applications.map((a,j)=>j===i?{...a,applicant_name:e.target.value}:a)}))}/></div>
+                  <div style={p.field}><label style={p.label}>Type</label>
+                    <select style={p.input} value={app.type} onChange={e=>setForm(f=>({...f, applications:f.applications.map((a,j)=>j===i?{...a,type:e.target.value}:a)}))}>
+                      <option value="staff">Staff</option>
+                      <option value="dev">Dev</option>
+                    </select>
+                  </div>
+                  <div style={p.field}><label style={p.label}>Discord</label><input style={p.input} value={app.applicant_discord} onChange={e=>setForm(f=>({...f, applications:f.applications.map((a,j)=>j===i?{...a,applicant_discord:e.target.value}:a)}))}/></div>
+                  <div style={p.field}><label style={p.label}>Telegram</label><input style={p.input} value={app.applicant_telegram} onChange={e=>setForm(f=>({...f, applications:f.applications.map((a,j)=>j===i?{...a,applicant_telegram:e.target.value}:a)}))}/></div>
+                  <div style={{...p.field, gridColumn:'span 2'}}><label style={p.label}>Message</label><textarea style={p.textarea} value={app.message} onChange={e=>setForm(f=>({...f, applications:f.applications.map((a,j)=>j===i?{...a,message:e.target.value}:a)}))}/></div>
+                </div>
+              </div>
+            ))}
+            <button style={{...p.btnSkip, fontSize:'0.78rem', marginTop:4}} onClick={()=>setForm(f=>({...f, applications:[...f.applications, {applicant_name:'', type:'staff', applicant_discord:'', applicant_telegram:'', message:''}]}))}>
+              + Add Application
+            </button>
+          </div>
 
           {/* Notes */}
           <div style={p.section}>
