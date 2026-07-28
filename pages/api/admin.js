@@ -8,14 +8,14 @@ const supabase = createClient(
 export default async function handler(req, res) {
   const { action } = req.query
 
-  if (req.method === 'GET' && action === 'approvals') {
-    const [{ data: v }, { data: sw }, { data: profs }] = await Promise.all([
-      supabase.from('vacation_requests').select('id,user_id,start_date,end_date,days_requested,status,admin_notes,submitted_at,validation_warnings').eq('status','pending').order('submitted_at'),
-      supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date,status,notes').eq('status','pending_admin'),
-      supabase.from('profiles').select('id,name,vacation_used,vacation_pending,vacation_allowance,shift'),
-    ])
-    return res.status(200).json({ vacations: v||[], swaps: sw||[], profiles: profs||[] })
-  }
+ if (req.method === 'GET' && action === 'approvals') {
+  const [{ data: v }, { data: sw }, { data: profs }, { data: allSw }] = await Promise.all([
+    supabase.from('vacation_requests').select('id,user_id,start_date,end_date,days_requested,status,admin_notes,submitted_at,validation_warnings').eq('status','pending').order('submitted_at'),
+    supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date,status,notes').eq('status','pending_admin'),
+    supabase.from('profiles').select('id,name,vacation_used,vacation_pending,vacation_allowance,shift'),
+supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date,status,notes,created_at').order('created_at',{ascending:false}).limit(50),  ])
+  return res.status(200).json({ vacations: v||[], swaps: sw||[], profiles: profs||[], allSwaps: allSw||[] })
+}
 
   if (req.method === 'POST' && action === 'decide_vacation') {
     const { id, decision, notes, user_id, days_requested, vacation_used, vacation_pending } = req.body
@@ -35,11 +35,25 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true })
   }
 
-  if (req.method === 'POST' && action === 'decide_swap') {
-    const { id, decision } = req.body
-    await supabase.from('shift_swaps').update({ status: decision, admin_response: decision }).eq('id', id)
-    return res.status(200).json({ ok: true })
+ if (req.method === 'POST' && action === 'decide_swap') {
+  const { id, decision } = req.body
+  await supabase.from('shift_swaps').update({ status: decision, admin_response: decision }).eq('id', id)
+  
+  if (decision === 'approved') {
+    const { data: swap } = await supabase.from('shift_swaps').select('*').eq('id', id).single()
+    if (swap) {
+      await supabase.from('swap_debts').insert({
+        debtor_id:  swap.requester_id,
+        creditor_id: swap.target_id,
+        swap_id:    swap.id,
+        swap_date:  swap.swap_date,
+        settled:    false,
+      })
+    }
   }
+  
+  return res.status(200).json({ ok: true })
+}
 
   if (req.method === 'POST' && action === 'create_mod') {
   const { name, full_name, nickname, email, password, shift, birthday, timezone, discord_name, telegram_name, mod_group } = req.body
