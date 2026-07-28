@@ -42,7 +42,7 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
     locked_blacktide_rl: '',
     locked_blacktide_hunt: '', skin_manipulation: '', free_coin_abuser: '',
     phone_abuser: '', referral_abuser: '', notes: '',
-    has_bug: false, has_exploit: false, dev_notes: '',
+    has_bug: false, has_exploit: false, dev_notes: '', pending_links: '', important_links: '',
     applications: [],
   })
   const [saving, setSaving] = useState(false)
@@ -86,6 +86,8 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
         free_coin_abuser:     form.free_coin_abuser,
         phone_abuser:         form.phone_abuser,
         referral_abuser:      form.referral_abuser,
+        pending_links:   form.pending_links,
+        important_links: form.important_links,
         notes:                form.notes,
         has_bug:              form.has_bug,
         has_exploit:          form.has_exploit,
@@ -118,18 +120,27 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
         <div style={p.body}>
           {error && <div style={p.error}>{error}</div>}
 
+{/* Pending & Important */}
+<div style={p.section}>
+  <div style={p.sectionTitle}>🔗 Pending & Important</div>
+  <div style={p.grid2}>
+    <div style={p.field}><label style={p.label}>Pending — Links</label><textarea style={p.textarea} value={form.pending_links} onChange={e=>set('pending_links',e.target.value)} placeholder={'https://app.intercom.com/...\nhttps://app.intercom.com/...'}/></div>
+    <div style={p.field}><label style={p.label}>Important — Links</label><textarea style={p.textarea} value={form.important_links} onChange={e=>set('important_links',e.target.value)} placeholder={'https://app.intercom.com/...\nhttps://app.intercom.com/...'}/></div>
+  </div>
+</div>
+
           {/* Locked Accounts */}
           <div style={p.section}>
             <div style={p.sectionTitle}>🔒 Locked Accounts</div>
             <div style={{marginBottom:12}}>
               <div style={{fontSize:'0.75rem', color:'#60a5fa', fontWeight:600, marginBottom:8}}>Blacktide</div>
               <div style={p.grid2}>
-                <div style={p.field}><label style={p.label}>Rustyloot (IDs)</label><textarea style={p.textarea} value={form.locked_blacktide_rl} onChange={e=>set('locked_blacktide_rl',e.target.value)} placeholder={'812665\n812666'}/></div>
-                <div style={p.field}><label style={p.label}>Hunt (IDs)</label><textarea style={p.textarea} value={form.locked_blacktide_hunt} onChange={e=>set('locked_blacktide_hunt',e.target.value)} placeholder={'115013\n115014'}/></div>
+                <div style={p.field}><label style={p.label}>Rustyloot (IDs)</label><textarea style={p.textarea} value={form.locked_blacktide_rl} onChange={e=>set('locked_blacktide_rl',e.target.value)} placeholder={'id1\nid2'}/></div>
+                <div style={p.field}><label style={p.label}>Hunt (IDs)</label><textarea style={p.textarea} value={form.locked_blacktide_hunt} onChange={e=>set('locked_blacktide_hunt',e.target.value)} placeholder={'id1\nid2'}/></div>
               </div>
             </div>
             <div style={p.grid2}>
-              <div style={p.field}><label style={p.label}>Skin Manipulation — Rustyloot (IDs)</label><textarea style={p.textarea} value={form.skin_manipulation} onChange={e=>set('skin_manipulation',e.target.value)} placeholder={'812599\n812601'}/></div>
+              <div style={p.field}><label style={p.label}>Skin Manipulation — Rustyloot (IDs)</label><textarea style={p.textarea} value={form.skin_manipulation} onChange={e=>set('skin_manipulation',e.target.value)} placeholder={'id1\nid2'}/></div>
             </div>
           </div>
 
@@ -138,8 +149,8 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
             <div style={p.sectionTitle}>⚠️ Abusers</div>
             <div style={p.grid3}>
               <div style={p.field}><label style={p.label}>Free Coin — Rustyloot</label><textarea style={p.textarea} value={form.free_coin_abuser} onChange={e=>set('free_coin_abuser',e.target.value)} placeholder={'812599\n812601'}/></div>
-              <div style={p.field}><label style={p.label}>Phone Abuser — Hunt</label><textarea style={p.textarea} value={form.phone_abuser} onChange={e=>set('phone_abuser',e.target.value)} placeholder={'115013'}/></div>
-              <div style={p.field}><label style={p.label}>Referral Abuser — Hunt</label><textarea style={p.textarea} value={form.referral_abuser} onChange={e=>set('referral_abuser',e.target.value)} placeholder={'115016\n115013'}/></div>
+              <div style={p.field}><label style={p.label}>Phone Abuser — Hunt</label><textarea style={p.textarea} value={form.phone_abuser} onChange={e=>set('phone_abuser',e.target.value)} placeholder={'ID1'}/></div>
+              <div style={p.field}><label style={p.label}>Referral Abuser — Hunt</label><textarea style={p.textarea} value={form.referral_abuser} onChange={e=>set('referral_abuser',e.target.value)} placeholder={'id1\nid2'}/></div>
             </div>
           </div>
 
@@ -1609,7 +1620,7 @@ function TeamDirectory() {
   const [mods, setMods]     = useState([])
   const [search, setSearch] = useState('')
   useEffect(()=>{
-    supabase.from('profiles').select('id,name,full_name,nickname,shift,timezone,discord_name,telegram_name,days_off,mod_group,status,avatar_url').eq('role','mod').eq('status','active').order('name')
+    supabase.from('profiles').select('id,name,full_name,nickname,shift,timezone,discord_name,telegram_name,days_off,mod_group,status,avatar_url').eq('role','mod').neq('status','left').order('name')
       .then(({data})=>setMods(data||[]))
   },[])
   const SHIFT_COLOR={'Morning Shift':'#3b82f6','Afternoon Shift':'#8b5cf6','Night Shift':'#06b6d4'}
@@ -1622,9 +1633,15 @@ function TeamDirectory() {
       {filtered.map(m=>{
         const shiftColor=SHIFT_COLOR[m.shift]||'#94a3b8', daysOff=m.days_off||[]
         return (
-          <div key={m.id} style={{padding:'12px 0',borderBottom:'1px solid #1e2433'}}>
-            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-              <div style={{flex:1,minWidth:140}}>
+ <div key={m.id} style={{padding:'12px 0',borderBottom:'1px solid #1e2433'}}>
+  <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+    <div style={{width:36,height:36,borderRadius:'50%',flexShrink:0,overflow:'hidden'}}>
+      {m.avatar_url
+        ? <img src={m.avatar_url} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+        : <div style={{width:'100%',height:'100%',background:'linear-gradient(135deg,#3b82f6,#8b5cf6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.9rem',fontWeight:700,color:'#fff'}}>{m.name[0].toUpperCase()}</div>
+      }
+    </div>
+    <div style={{flex:1}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                   <span style={{fontSize:'0.87rem',fontWeight:600,color:'#f1f5f9'}}>{m.name}</span>
                   {m.nickname&&<span style={{fontSize:'0.72rem',color:'#64748b'}}>"{m.nickname}"</span>}
@@ -1657,11 +1674,10 @@ function PageCalendar() {
   const [swaps, setSwaps]         = useState([])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [loading, setLoading]     = useState(true)
-
+  const [birthdays, setBirthdays] = useState([])
   const year  = currentDate.getFullYear()
   const month = currentDate.getMonth()
   const isEvenMonth = (month + 1) % 2 === 0
-
   const DAYS_OF_WEEK = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
   const MONTH_NAMES  = ['January','February','March','April','May','June','July','August','September','October','November','December']
   const SHIFT_COLOR  = { 'Morning Shift':'#3b82f6','Afternoon Shift':'#8b5cf6','Night Shift':'#06b6d4' }
@@ -1669,18 +1685,19 @@ function PageCalendar() {
   useEffect(() => { load() }, [month, year])
 
   async function load() {
-    setLoading(true)
-    const firstDay = new Date(year, month, 1).toISOString().split('T')[0]
-    const lastDay  = new Date(year, month + 1, 0).toISOString().split('T')[0]
-    const [{ data:m },{ data:v },{ data:sw }] = await Promise.all([
-      supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt,mod_group').eq('role','mod').neq('status','left').order('name'),
-      supabase.from('vacation_requests').select('id,user_id,start_date,end_date').eq('status','approved').lte('start_date',lastDay).gte('end_date',firstDay),
-      supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date').eq('status','approved').gte('swap_date',firstDay).lte('swap_date',lastDay),
-    ])
-    setMods(m||[]); setVacations(v||[]); setSwaps(sw||[])
-    setLoading(false)
-  }
-
+  setLoading(true)
+  const firstDay = new Date(year, month, 1).toISOString().split('T')[0]
+  const lastDay  = new Date(year, month + 1, 0).toISOString().split('T')[0]
+  const [{ data:m },{ data:v },{ data:sw },{ data:bd }] = await Promise.all([
+    supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt,mod_group,birthday').eq('role','mod').neq('status','left').order('name'),
+    supabase.from('vacation_requests').select('id,user_id,start_date,end_date').eq('status','approved').lte('start_date',lastDay).gte('end_date',firstDay),
+    supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date').eq('status','approved').gte('swap_date',firstDay).lte('swap_date',lastDay),
+    supabase.from('profiles').select('id,birthday').eq('role','mod').not('birthday','is',null),
+  ])
+  setMods(m||[]); setVacations(v||[]); setSwaps(sw||[])
+  setBirthdays(bd||[])
+  setLoading(false)
+}
   function getDays() {
     const days = []
     const first = new Date(year, month, 1)
@@ -1708,13 +1725,19 @@ function PageCalendar() {
     return swaps.some(sw => sw.swap_date===d && (sw.requester_id===modId||sw.target_id===modId))
   }
 
-  function getCell(mod, date) {
-    if (isOnVacation(mod.id, date)) return { label:'VAC', color:'#34d399', bg:'#34d39918' }
-    if (hasSwap(mod.id, date))      return { label:'SWAP', color:'#f59e0b', bg:'#f59e0b18' }
-    if (isOff(mod, date))           return { label:'OFF', color:'#f87171', bg:'#f8717118' }
-    const color = SHIFT_COLOR[mod.shift] || '#94a3b8'
-    return { label: mod.shift?.split(' ')[0]||'—', color, bg: color+'15' }
-  }
+ function getCell(mod, date) {
+  const isBirthday = birthdays.some(b => {
+    if (!b.birthday || b.id !== mod.id) return false
+    const bd = new Date(b.birthday)
+    return bd.getMonth()===date.getMonth() && bd.getDate()===date.getDate()
+  })
+  if (isBirthday)             return { label:'🎂', color:'#f59e0b', bg:'#f59e0b18' }
+  if (isOnVacation(mod.id, date)) return { label:'VAC', color:'#34d399', bg:'#34d39918' }
+  if (hasSwap(mod.id, date))      return { label:'SWAP', color:'#f59e0b', bg:'#f59e0b18' }
+  if (isOff(mod, date))           return { label:'OFF', color:'#f87171', bg:'#f8717118' }
+  const color = SHIFT_COLOR[mod.shift] || '#94a3b8'
+  return { label: mod.shift?.split(' ')[0]||'—', color, bg: color+'15' }
+}
 
   const days  = getDays()
   const today = new Date()
@@ -1760,7 +1783,7 @@ function ShiftCalendar({ title, accent, rows }) {
                   const cell = getCell(mod, d)
                   const isToday = d.toDateString()===today.toDateString()
                   const isWeekend = d.getDay()===0||d.getDay()===6
-                  const isWorking = cell.label!=='OFF'&&cell.label!=='VAC'&&cell.label!=='SWAP'
+                  const isWorking = cell.label!=='OFF'&&cell.label!=='VAC'&&cell.label!=='SWAP'&&cell.label!=='🎂'
                   return (
                     <td key={i} style={{padding:'6px 2px', textAlign:'center', borderBottom:'1px solid #0f1117', background:isToday?'#1e2433':isWeekend?'#0d1018':'transparent'}}>
                       {isWorking
@@ -1795,11 +1818,11 @@ function ShiftCalendar({ title, accent, rows }) {
       </div>
       <div style={{display:'flex', gap:16, flexWrap:'wrap', marginBottom:24}}>
         {Object.entries(SHIFT_COLOR).map(([shift,color])=>(
-          <div key={shift} style={{display:'flex',alignItems:'center',gap:6}}>
-            <div style={{width:10,height:10,borderRadius:2,background:color}}/>
-            <span style={{fontSize:'0.72rem',color:'#94a3b8'}}>{shift}</span>
-          </div>
-        ))}
+  <div key={shift} style={{display:'flex',alignItems:'center',gap:6}}>
+    <div style={{width:10,height:10,borderRadius:2,background:color}}/>
+    <span style={{fontSize:'0.72rem',color:'#94a3b8'}}>{shift}</span>
+  </div>
+))}
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#f87171'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Day Off</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#34d399'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Vacation</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#f59e0b'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
@@ -1824,6 +1847,7 @@ function PageTeamReports() {
   const [loading, setLoading]     = useState(true)
   const [filter, setFilter]       = useState('today')
   const [modFilter, setModFilter] = useState('')
+  const [search, setSearch]       = useState('')
   const [mods, setMods]           = useState({})
   const [modsList, setModsList]   = useState([])
   const [selected, setSelected]   = useState(null)
@@ -1834,8 +1858,9 @@ function PageTeamReports() {
     setLoading(true)
     const now = new Date(); let from
     if (filter==='today') { from=new Date(now); from.setHours(0,0,0,0) }
-    else if (filter==='week') { from=new Date(now); from.setDate(now.getDate()-7) }
-    else { from=new Date(now.getFullYear(),now.getMonth(),1) }
+else if (filter==='week') { from=new Date(now); from.setDate(now.getDate()-7) }
+else if (filter==='month') { from=new Date(now.getFullYear(),now.getMonth(),1) }
+else { from=new Date(2024,0,1) }
     const [{ data:r },{ data:p }] = await Promise.all([
       supabase.from('daily_reports').select('*').gte('report_date', from.toISOString().split('T')[0]).order('report_date',{ascending:false}),
       supabase.from('profiles').select('id,name,avatar_url').eq('role','mod'),
@@ -1845,6 +1870,19 @@ function PageTeamReports() {
     setReports(modFilter?(r||[]).filter(x=>x.user_id===modFilter):(r||[]))
     setLoading(false)
   }
+
+  const filtered = search.trim()
+    ? reports.filter(r => {
+        const q = search.toLowerCase()
+        const fields = [
+          r.locked_blacktide_rl, r.locked_blacktide_hunt, r.skin_manipulation,
+          r.free_coin_abuser, r.phone_abuser, r.referral_abuser,
+          r.pending_links, r.important_links, r.notes, r.dev_notes,
+          mods[r.user_id]?.name
+        ]
+        return fields.some(f => f && f.toLowerCase().includes(q))
+      })
+    : reports
 
   return (
     <div style={s.content}>
@@ -1857,17 +1895,18 @@ function PageTeamReports() {
             {modsList.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
           <div style={s.filterRow}>
-            {['today','week','month'].map(f=>(
-              <button key={f} style={{...s.filterBtn,...(filter===f?s.filterActive:{})}} onClick={()=>setFilter(f)}>{f.charAt(0).toUpperCase()+f.slice(1)}</button>
-            ))}
+           {['today','week','month','all'].map(f=>(
+  <button key={f} style={{...s.filterBtn,...(filter===f?s.filterActive:{})}} onClick={()=>setFilter(f)}>{f.charAt(0).toUpperCase()+f.slice(1)}</button>
+))}
           </div>
         </div>
       </div>
-      {loading?<div style={s.empty}>Loading…</div>:reports.length===0?(
-        <div style={s.card}><p style={s.empty}>No reports yet.</p></div>
+      <input style={{...s.input, width:'100%', marginBottom:16}} placeholder="Search by UID, mod name, notes…" value={search} onChange={e=>setSearch(e.target.value)}/>
+      {loading?<div style={s.empty}>Loading…</div>:filtered.length===0?(
+        <div style={s.card}><p style={s.empty}>No reports found.</p></div>
       ):(
         <div style={s.card}>
-          {reports.map(r=>(
+          {filtered.map(r=>(
             <ReportCard key={r.id} report={r} modName={mods[r.user_id]?.name} avatarUrl={mods[r.user_id]?.avatar_url} onClick={()=>setSelected(r)}/>
           ))}
         </div>
@@ -1900,7 +1939,7 @@ function PageDevReports({ userId }) {
 
   return (
     <div style={s.content}>
-      <div style={s.pageHead}>
+      <div style={s.pageHead}>f
         <h1 style={s.pageTitle}>Dev Reports</h1>
         <div style={s.filterRow}>
           {['all','open','resolved'].map(f=>(
@@ -1960,7 +1999,7 @@ function PageLinks() {
     ]},
     { category:'Discord', items:[
       { label:'RustyLoot Discord', desc:'Main server', url:'https://discord.com/channels/984386438160343092/984386438747529278', color:'#5865F2' },
-      { label:'Hunt Discord',    desc:'Hunt server', url:'https://discord.com/channels/1242469866573926400/1274418382942371996', color:'#5865F2' },
+      { label:'Hunt Discord',      desc:'Hunt server', url:'https://discord.com/channels/1242469866573926400/1274418382942371996', color:'#5865F2' },
     ]},
     { category:'Sites', items:[
       { label:'Rustyloot', desc:'Live chat', url:'https://rustyloot.gg/', color:'#f59e0b' },

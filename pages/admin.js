@@ -573,12 +573,28 @@ function PageModerators() {
     return (
       <div style={{padding:'16px 0', borderBottom:'1px solid #1e2433'}}>
         <div style={{display:'flex', alignItems:'center', gap:12, flexWrap:'wrap'}}>
-          <div style={{width:34,height:34,borderRadius:'50%',flexShrink:0,overflow:'hidden'}}>
-            {m.avatar_url
-              ? <img src={m.avatar_url} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-              : <div style={{width:'100%',height:'100%',background:'linear-gradient(135deg,#3b82f6,#8b5cf6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.85rem',fontWeight:700,color:'#fff'}}>{(m.name||'?')[0].toUpperCase()}</div>
-            }
-          </div>
+         <div style={{position:'relative', flexShrink:0}}>
+  <div style={{width:34,height:34,borderRadius:'50%',overflow:'hidden'}}>
+    {m.avatar_url
+      ? <img src={m.avatar_url} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+      : <div style={{width:'100%',height:'100%',background:'linear-gradient(135deg,#3b82f6,#8b5cf6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.85rem',fontWeight:700,color:'#fff'}}>{(m.name||'?')[0].toUpperCase()}</div>
+    }
+  </div>
+  <label style={{position:'absolute',bottom:-2,right:-2,width:14,height:14,borderRadius:'50%',background:'#3b82f6',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',border:'2px solid #141820'}}>
+    <svg width="7" height="7" fill="none" stroke="#fff" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    <input type="file" accept="image/*" style={{display:'none'}} onChange={async e=>{
+      const file = e.target.files[0]
+      if (!file) return
+      const ext = file.name.split('.').pop()
+      const path = `${m.id}.${ext}`
+      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert:true })
+      if (error) { alert(error.message); return }
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+      await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', m.id)
+      load()
+    }}/>
+  </label>
+</div>
           <div style={{flex:1, minWidth:160}}>
             <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
               <span style={{fontSize:'0.87rem', fontWeight:600}}>{m.name}</span>
@@ -911,7 +927,28 @@ function PageShifts() {
           <div style={s.cardHead}><span style={s.cardTitle}>Edit Moderator Schedules</span></div>
           {mods.map(m=>(
             <div key={m.id} style={{...s.dutyRow, flexWrap:'wrap', gap:12, padding:'14px 0'}}>
-              <div style={s.modAvatar}>{m.name[0].toUpperCase()}</div>
+             <div style={{position:'relative', flexShrink:0}}>
+  <div style={{width:34,height:34,borderRadius:'50%',overflow:'hidden'}}>
+    {m.avatar_url
+      ? <img src={m.avatar_url} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+      : <div style={{width:'100%',height:'100%',background:'linear-gradient(135deg,#3b82f6,#8b5cf6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.85rem',fontWeight:700,color:'#fff'}}>{(m.name||'?')[0].toUpperCase()}</div>
+    }
+  </div>
+  <label style={{position:'absolute',bottom:-2,right:-2,width:14,height:14,borderRadius:'50%',background:'#3b82f6',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',border:'2px solid #141820'}}>
+    <svg width="7" height="7" fill="none" stroke="#fff" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    <input type="file" accept="image/*" style={{display:'none'}} onChange={async e=>{
+      const file = e.target.files[0]
+      if (!file) return
+      const ext = file.name.split('.').pop()
+      const path = `${m.id}.${ext}`
+      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert:true })
+      if (error) { alert(error.message); return }
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+      await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', m.id)
+      load()
+    }}/>
+  </label>
+</div>
               <div style={{flex:1, minWidth:100}}>
                 <div style={{display:'flex', alignItems:'center', gap:6}}>
                   <span style={{fontSize:'0.87rem', fontWeight:500}}>{m.name}</span>
