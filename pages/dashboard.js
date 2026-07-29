@@ -42,7 +42,8 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
     locked_blacktide_rl: '',
     locked_blacktide_hunt: '', skin_manipulation: '', free_coin_abuser: '',
     phone_abuser: '', referral_abuser: '', notes: '',
-    has_bug: false, has_exploit: false, dev_notes: '', pending_links: '', important_links: '',
+    has_bug: false, has_exploit: false, dev_notes: '', pending_tickets: [{ link:'', description:'' }],
+  important_tickets: [{ link:'', description:'' }],
     applications: [],
   })
   const [saving, setSaving] = useState(false)
@@ -123,9 +124,29 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
 {/* Pending & Important */}
 <div style={p.section}>
   <div style={p.sectionTitle}>🔗 Pending & Important</div>
-  <div style={p.grid2}>
-    <div style={p.field}><label style={p.label}>Pending — Links</label><textarea style={p.textarea} value={form.pending_links} onChange={e=>set('pending_links',e.target.value)} placeholder={'https://app.intercom.com/...\nhttps://app.intercom.com/...'}/></div>
-    <div style={p.field}><label style={p.label}>Important — Links</label><textarea style={p.textarea} value={form.important_links} onChange={e=>set('important_links',e.target.value)} placeholder={'https://app.intercom.com/...\nhttps://app.intercom.com/...'}/></div>
+  
+  <div style={{marginBottom:16}}>
+    <div style={{fontSize:'0.75rem', color:'#60a5fa', fontWeight:600, marginBottom:8}}>Pending Tickets</div>
+    {form.pending_tickets.map((t,i)=>(
+      <div key={i} style={{display:'flex', gap:8, marginBottom:8, alignItems:'center'}}>
+        <input style={{...p.input, flex:1}} value={t.link} onChange={e=>setForm(f=>({...f, pending_tickets:f.pending_tickets.map((x,j)=>j===i?{...x,link:e.target.value}:x)}))} placeholder="https://app.intercom.com/..."/>
+        <input style={{...p.input, flex:1}} value={t.description} onChange={e=>setForm(f=>({...f, pending_tickets:f.pending_tickets.map((x,j)=>j===i?{...x,description:e.target.value}:x)}))} placeholder="What is this ticket about?"/>
+        <span style={{cursor:'pointer', color:'#f87171', fontSize:'0.8rem', flexShrink:0}} onClick={()=>setForm(f=>({...f, pending_tickets:f.pending_tickets.filter((_,j)=>j!==i)}))}>✕</span>
+      </div>
+    ))}
+    <button style={{...p.btnSkip, fontSize:'0.75rem'}} onClick={()=>setForm(f=>({...f, pending_tickets:[...f.pending_tickets, {link:'',description:''}]}))}>+ Add Pending</button>
+  </div>
+
+  <div>
+    <div style={{fontSize:'0.75rem', color:'#f59e0b', fontWeight:600, marginBottom:8}}>Important Tickets</div>
+    {form.important_tickets.map((t,i)=>(
+      <div key={i} style={{display:'flex', gap:8, marginBottom:8, alignItems:'center'}}>
+        <input style={{...p.input, flex:1}} value={t.link} onChange={e=>setForm(f=>({...f, important_tickets:f.important_tickets.map((x,j)=>j===i?{...x,link:e.target.value}:x)}))} placeholder="https://app.intercom.com/..."/>
+        <input style={{...p.input, flex:1}} value={t.description} onChange={e=>setForm(f=>({...f, important_tickets:f.important_tickets.map((x,j)=>j===i?{...x,description:e.target.value}:x)}))} placeholder="What is this ticket about?"/>
+        <span style={{cursor:'pointer', color:'#f87171', fontSize:'0.8rem', flexShrink:0}} onClick={()=>setForm(f=>({...f, important_tickets:f.important_tickets.filter((_,j)=>j!==i)}))}>✕</span>
+      </div>
+    ))}
+    <button style={{...p.btnSkip, fontSize:'0.75rem'}} onClick={()=>setForm(f=>({...f, important_tickets:[...f.important_tickets, {link:'',description:''}]}))}>+ Add Important</button>
   </div>
 </div>
 
@@ -135,12 +156,12 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
             <div style={{marginBottom:12}}>
               <div style={{fontSize:'0.75rem', color:'#60a5fa', fontWeight:600, marginBottom:8}}>Blacktide</div>
               <div style={p.grid2}>
-                <div style={p.field}><label style={p.label}>Rustyloot (IDs)</label><textarea style={p.textarea} value={form.locked_blacktide_rl} onChange={e=>set('locked_blacktide_rl',e.target.value)} placeholder={'id1\nid2'}/></div>
-                <div style={p.field}><label style={p.label}>Hunt (IDs)</label><textarea style={p.textarea} value={form.locked_blacktide_hunt} onChange={e=>set('locked_blacktide_hunt',e.target.value)} placeholder={'id1\nid2'}/></div>
+                <div style={p.field}><label style={p.label}>Rustyloot (IDs)</label><textarea style={p.textarea} value={form.locked_blacktide_rl} onChange={e=>set('locked_blacktide_rl',e.target.value)} placeholder={'ID'}/></div>
+                <div style={p.field}><label style={p.label}>Hunt (IDs)</label><textarea style={p.textarea} value={form.locked_blacktide_hunt} onChange={e=>set('locked_blacktide_hunt',e.target.value)} placeholder={'ID'}/></div>
               </div>
             </div>
             <div style={p.grid2}>
-              <div style={p.field}><label style={p.label}>Skin Manipulation — Rustyloot (IDs)</label><textarea style={p.textarea} value={form.skin_manipulation} onChange={e=>set('skin_manipulation',e.target.value)} placeholder={'id1\nid2'}/></div>
+              <div style={p.field}><label style={p.label}>Skin Manipulation — Rustyloot (IDs)</label><textarea style={p.textarea} value={form.skin_manipulation} onChange={e=>set('skin_manipulation',e.target.value)} placeholder={'ID'}/></div>
             </div>
           </div>
 
@@ -148,9 +169,9 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
           <div style={p.section}>
             <div style={p.sectionTitle}>⚠️ Abusers</div>
             <div style={p.grid3}>
-              <div style={p.field}><label style={p.label}>Free Coin — Rustyloot</label><textarea style={p.textarea} value={form.free_coin_abuser} onChange={e=>set('free_coin_abuser',e.target.value)} placeholder={'812599\n812601'}/></div>
-              <div style={p.field}><label style={p.label}>Phone Abuser — Hunt</label><textarea style={p.textarea} value={form.phone_abuser} onChange={e=>set('phone_abuser',e.target.value)} placeholder={'ID1'}/></div>
-              <div style={p.field}><label style={p.label}>Referral Abuser — Hunt</label><textarea style={p.textarea} value={form.referral_abuser} onChange={e=>set('referral_abuser',e.target.value)} placeholder={'id1\nid2'}/></div>
+              <div style={p.field}><label style={p.label}>Free Coin — Rustyloot</label><textarea style={p.textarea} value={form.free_coin_abuser} onChange={e=>set('free_coin_abuser',e.target.value)} placeholder={'ID'}/></div>
+              <div style={p.field}><label style={p.label}>Phone Abuser — Hunt</label><textarea style={p.textarea} value={form.phone_abuser} onChange={e=>set('phone_abuser',e.target.value)} placeholder={'ID'}/></div>
+              <div style={p.field}><label style={p.label}>Referral Abuser — Hunt</label><textarea style={p.textarea} value={form.referral_abuser} onChange={e=>set('referral_abuser',e.target.value)} placeholder={'ID'}/></div>
             </div>
           </div>
 
@@ -1470,14 +1491,7 @@ function ReportModal({ report, modName, onClose }) {
           <span style={{color:'#4a5568',cursor:'pointer',fontSize:'1.2rem',padding:4}} onClick={onClose}>✕</span>
         </div>
         <div style={{padding:'20px 24px',overflowY:'auto',flex:1}}>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:16}}>
-            {[['Total',report.total_tickets],['Replies',report.mod_tickets],['Pending',report.pending_tickets],['Important',report.important_tickets]].map(([label,val])=>(
-              <div key={label} style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}>
-                <div style={{fontSize:'0.68rem',color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>{label}</div>
-                <div style={{fontSize:'1.3rem',fontWeight:700,color:'#f1f5f9'}}>{val||0}</div>
-              </div>
-            ))}
-          </div>
+        
           {(report.pending_links||report.important_links)&&(
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
               {report.pending_links&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}>
@@ -1939,7 +1953,7 @@ function PageDevReports({ userId }) {
 
   return (
     <div style={s.content}>
-      <div style={s.pageHead}>f
+      <div style={s.pageHead}>
         <h1 style={s.pageTitle}>Dev Reports</h1>
         <div style={s.filterRow}>
           {['all','open','resolved'].map(f=>(
