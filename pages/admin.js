@@ -59,28 +59,46 @@ function ReportModal({ report, modName, onClose, onResolve, isAdmin, hideDevInfo
           <span style={{color:'#4a5568',cursor:'pointer',fontSize:'1.2rem',padding:4}} onClick={onClose}>✕</span>
         </div>
         <div style={{padding:'20px 24px',overflowY:'auto',flex:1}}>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:16}}>
-            {[['Total',report.total_tickets],['Replies',report.mod_tickets],['Pending',report.pending_tickets],['Important',report.important_tickets]].map(([label,val])=>(
-              <div key={label} style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}>
-                <div style={{fontSize:'0.68rem',color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>{label}</div>
-                <div style={{fontSize:'1.3rem',fontWeight:700,color:'#f1f5f9'}}>{val||0}</div>
-              </div>
-            ))}
-          </div>
           {(report.pending_links||report.important_links)&&(
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-              {report.pending_links&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}>
-                <div style={{fontSize:'0.72rem',color:'#64748b',marginBottom:6}}>🔗 Pending Links</div>
-                {report.pending_links.split(/\n/).filter(Boolean).map((link,i)=>(
-                  <a key={i} href={link} target="_blank" rel="noreferrer" style={{display:'block',fontSize:'0.78rem',color:'#60a5fa',marginBottom:4,wordBreak:'break-all'}}>{link}</a>
-                ))}
-              </div>}
-              {report.important_links&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}>
-                <div style={{fontSize:'0.72rem',color:'#64748b',marginBottom:6}}>🔗 Important Links</div>
-                {report.important_links.split(/\n/).filter(Boolean).map((link,i)=>(
-                  <a key={i} href={link} target="_blank" rel="noreferrer" style={{display:'block',fontSize:'0.78rem',color:'#f59e0b',marginBottom:4,wordBreak:'break-all'}}>{link}</a>
-                ))}
-              </div>}
+              {report.pending_links&&(()=>{
+                try {
+                  const tickets = JSON.parse(report.pending_links)
+                  if (Array.isArray(tickets) && tickets.length>0) return (
+                    <div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}>
+                      <div style={{fontSize:'0.72rem',color:'#64748b',marginBottom:6}}>🔗 Pending</div>
+                      {tickets.map((t,i)=>(
+                        <a key={i} href={t.link} target="_blank" rel="noreferrer" style={{display:'flex',alignItems:'center',gap:6,padding:'6px 8px',borderRadius:6,background:'#141820',border:'1px solid #1e2433',marginBottom:6,textDecoration:'none',cursor:'pointer'}}
+                          onMouseEnter={e=>e.currentTarget.style.borderColor='#3b82f6'}
+                          onMouseLeave={e=>e.currentTarget.style.borderColor='#1e2433'}>
+                          <span style={{fontSize:'0.78rem',color:'#60a5fa',flex:1}}>{t.description||t.link}</span>
+                          <svg width="10" height="10" fill="none" stroke="#60a5fa" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </a>
+                      ))}
+                    </div>
+                  )
+                } catch(e) {}
+                return null
+              })()}
+              {report.important_links&&(()=>{
+                try {
+                  const tickets = JSON.parse(report.important_links)
+                  if (Array.isArray(tickets) && tickets.length>0) return (
+                    <div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}>
+                      <div style={{fontSize:'0.72rem',color:'#64748b',marginBottom:6}}>⭐ Important</div>
+                      {tickets.map((t,i)=>(
+                        <a key={i} href={t.link} target="_blank" rel="noreferrer" style={{display:'flex',alignItems:'center',gap:6,padding:'6px 8px',borderRadius:6,background:'#141820',border:'1px solid #1e2433',marginBottom:6,textDecoration:'none',cursor:'pointer'}}
+                          onMouseEnter={e=>e.currentTarget.style.borderColor='#f59e0b'}
+                          onMouseLeave={e=>e.currentTarget.style.borderColor='#1e2433'}>
+                          <span style={{fontSize:'0.78rem',color:'#f59e0b',flex:1}}>{t.description||t.link}</span>
+                          <svg width="10" height="10" fill="none" stroke="#f59e0b" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </a>
+                      ))}
+                    </div>
+                  )
+                } catch(e) {}
+                return null
+              })()}
             </div>
           )}
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
@@ -142,7 +160,13 @@ function ReportCard({ report, modName, avatarUrl, onClick, hideDevInfo }) {
           {report.dev_resolved&&<span style={{fontSize:'0.63rem',fontWeight:700,padding:'1px 6px',borderRadius:10,background:'#34d39922',color:'#34d399'}}>✓ Resolved</span>}
         </div>
         <div style={{fontSize:'0.73rem',color:'#64748b',marginTop:2}}>
-          {report.total_tickets} tickets · {report.mod_tickets} replies · {report.pending_tickets} pending · {report.important_tickets} important
+          {(()=>{
+            let parts = []
+            try { const p=JSON.parse(report.pending_links||'[]'); if(p.length>0) parts.push(`${p.length} pending`) } catch(e){}
+            try { const i=JSON.parse(report.important_links||'[]'); if(i.length>0) parts.push(`${i.length} important`) } catch(e){}
+            if(report.notes) parts.push('📝 notes')
+            return parts.length>0 ? parts.join(' · ') : fmtDate(report.report_date)
+          })()}
         </div>
       </div>
       <svg width="14" height="14" fill="none" stroke="#4a5568" strokeWidth="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
@@ -832,15 +856,28 @@ function PageShifts() {
 
   useEffect(() => { load() }, [])
 
-  async function load() {
-    const { data } = await supabase.from('profiles').select('id,name,shift,status,days_off,mod_group,rotating_days_off,rotating_days_off_alt').eq('role','mod').order('name')
-    setMods(data || []); setLoading(false)
-  }
-
+async function load() {
+  const [{ data }, { data:overridesData }] = await Promise.all([
+    supabase.from('profiles').select('id,name,shift,status,days_off,mod_group,rotating_days_off,rotating_days_off_alt').eq('role','mod').order('name'),
+    supabase.from('shift_overrides').select('*'),
+  ])
+  const overridesByMod = {}
+  ;(overridesData||[]).forEach(o => {
+    if (!overridesByMod[o.user_id]) overridesByMod[o.user_id] = []
+    overridesByMod[o.user_id].push(o)
+  })
+  setMods((data||[]).map(m => ({...m, overrides: overridesByMod[m.id]||[]})))
+  setLoading(false)
+}
   async function saveEdit() {
-    await supabase.from('profiles').update({ shift:editMod.shift, days_off:editMod.days_off, mod_group:editMod.mod_group }).eq('id', editMod.id)
-    setEditMod(null); load()
+  await supabase.from('profiles').update({ shift:editMod.shift, days_off:editMod.days_off, mod_group:editMod.mod_group }).eq('id', editMod.id)
+  // Save overrides
+  await supabase.from('shift_overrides').delete().eq('user_id', editMod.id)
+  if (editMod.overrides && editMod.overrides.length > 0) {
+    await supabase.from('shift_overrides').insert(editMod.overrides.map(o=>({...o, user_id:editMod.id})))
   }
+  setEditMod(null); load()
+}
 
   function toggleDayOff(day) {
     const current = editMod.days_off || []
@@ -974,6 +1011,25 @@ function PageShifts() {
                       })}
                     </div>
                   </div>
+
+                  <div style={{marginBottom:12}}>
+  <label style={s.label}>Day Overrides</label>
+  <div style={{fontSize:'0.72rem', color:'#64748b', marginBottom:8}}>Define a different shift for specific days of the week.</div>
+  {(editMod.overrides||[]).map((o,i)=>(
+    <div key={i} style={{display:'flex', gap:8, marginBottom:8, alignItems:'center'}}>
+      <select style={{...s.input, flex:1}} value={o.day_of_week} onChange={e=>setEditMod(em=>({...em, overrides:em.overrides.map((x,j)=>j===i?{...x,day_of_week:e.target.value}:x)}))}>
+        {DAYS.map(d=><option key={d} value={d}>{d}</option>)}
+      </select>
+      <select style={{...s.input, flex:1}} value={o.shift} onChange={e=>setEditMod(em=>({...em, overrides:em.overrides.map((x,j)=>j===i?{...x,shift:e.target.value}:x)}))}>
+        {SHIFTS.map(sh=><option key={sh} value={sh}>{sh}</option>)}
+      </select>
+      <input style={{...s.input, width:80}} value={o.start_time||''} onChange={e=>setEditMod(em=>({...em, overrides:em.overrides.map((x,j)=>j===i?{...x,start_time:e.target.value}:x)}))} placeholder="09:00"/>
+      <input style={{...s.input, width:80}} value={o.end_time||''} onChange={e=>setEditMod(em=>({...em, overrides:em.overrides.map((x,j)=>j===i?{...x,end_time:e.target.value}:x)}))} placeholder="17:00"/>
+      <span style={{cursor:'pointer', color:'#f87171', flexShrink:0}} onClick={()=>setEditMod(em=>({...em, overrides:em.overrides.filter((_,j)=>j!==i)}))}>✕</span>
+    </div>
+  ))}
+  <button style={s.btnSmBlue} onClick={()=>setEditMod(em=>({...em, overrides:[...(em.overrides||[]), {day_of_week:'Sunday', shift:'Afternoon Shift', start_time:'', end_time:''}]}))}>+ Add Override</button>
+</div>
                   <div style={{marginBottom:12}}>
                     <label style={s.label}>Group</label>
                     <select style={{...s.input, marginTop:4}} value={editMod.mod_group||'english'} onChange={e=>setEditMod(em=>({...em,mod_group:e.target.value}))}>
@@ -1082,17 +1138,24 @@ function PageDailyReports() {
   const [mods, setMods]           = useState({})
   const [modsList, setModsList]   = useState([])
   const [selected, setSelected]   = useState(null)
+  const [search, setSearch]       = useState('')
 
   useEffect(() => { load() }, [filter, modFilter])
 
   async function load() {
     setLoading(true)
-    const now = new Date(); let from
-    if (filter==='today') { from=new Date(now); from.setHours(0,0,0,0) }
-    else if (filter==='week') { from=new Date(now); from.setDate(now.getDate()-7) }
-    else { from=new Date(now.getFullYear(),now.getMonth(),1) }
+    const now = new Date(); let q
+    if (filter==='all') {
+      q = supabase.from('daily_reports').select('*').order('created_at',{ascending:false})
+    } else {
+      let from
+      if (filter==='today') { from=new Date(now); from.setHours(0,0,0,0) }
+      else if (filter==='week') { from=new Date(now); from.setDate(now.getDate()-7) }
+      else { from=new Date(now.getFullYear(),now.getMonth(),1) }
+      q = supabase.from('daily_reports').select('*').gte('report_date', from.toISOString().split('T')[0]).order('created_at',{ascending:false})
+    }
     const [{ data:r },{ data:p }] = await Promise.all([
-      supabase.from('daily_reports').select('*').gte('report_date', from.toISOString().split('T')[0]).order('report_date',{ascending:false}),
+      q,
       supabase.from('profiles').select('id,name,avatar_url').eq('role','mod'),
     ])
     const map={}; (p||[]).forEach(x=>map[x.id]={name:x.name,avatar_url:x.avatar_url})
@@ -1101,9 +1164,19 @@ function PageDailyReports() {
     setLoading(false)
   }
 
+  const filtered = search.trim()
+    ? reports.filter(r => {
+        const q = search.toLowerCase()
+        try { const p=JSON.parse(r.pending_links||'[]'); if(p.some(t=>t.description?.toLowerCase().includes(q)||t.link?.toLowerCase().includes(q))) return true } catch(e){}
+        try { const i=JSON.parse(r.important_links||'[]'); if(i.some(t=>t.description?.toLowerCase().includes(q)||t.link?.toLowerCase().includes(q))) return true } catch(e){}
+        return [r.locked_blacktide_rl,r.locked_blacktide_hunt,r.skin_manipulation,r.free_coin_abuser,r.phone_abuser,r.referral_abuser,r.notes,mods[r.user_id]?.name]
+          .some(f=>f&&f.toLowerCase().includes(q))
+      })
+    : reports
+
   return (
     <div style={s.content}>
-{selected && <ReportModal report={selected} modName={mods[selected.user_id]?.name} onClose={()=>setSelected(null)} hideDevInfo/>}
+      {selected && <ReportModal report={selected} modName={mods[selected.user_id]?.name} onClose={()=>setSelected(null)} hideDevInfo/>}
       <div style={s.pageHead}>
         <h1 style={s.pageTitle}>Daily Reports</h1>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
@@ -1112,17 +1185,18 @@ function PageDailyReports() {
             {modsList.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
           <div style={s.filterRow}>
-            {['today','week','month'].map(f=>(
+            {['today','week','month','all'].map(f=>(
               <button key={f} style={{...s.filterBtn,...(filter===f?s.filterActive:{})}} onClick={()=>setFilter(f)}>{f.charAt(0).toUpperCase()+f.slice(1)}</button>
             ))}
           </div>
         </div>
       </div>
-      {loading?<div style={s.empty}>Loading…</div>:reports.length===0?(
+      <input style={{...s.input, width:'100%', marginBottom:16}} placeholder="Search by mod name, UID, notes…" value={search} onChange={e=>setSearch(e.target.value)}/>
+      {loading?<div style={s.empty}>Loading…</div>:filtered.length===0?(
         <div style={s.card}><p style={s.empty}>No reports yet.</p></div>
       ):(
         <div style={s.card}>
-          {reports.map(r=>(
+          {filtered.map(r=>(
             <ReportCard key={r.id} report={r} modName={mods[r.user_id]?.name} avatarUrl={mods[r.user_id]?.avatar_url} hideDevInfo onClick={()=>setSelected(r)}/>
           ))}
         </div>
@@ -1259,6 +1333,8 @@ function PageCalendar() {
   const [swaps, setSwaps]         = useState([])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [loading, setLoading]     = useState(true)
+  const [birthdays, setBirthdays] = useState([])
+  const [overrides, setOverrides] = useState([])
 
   const year  = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -1271,17 +1347,21 @@ function PageCalendar() {
   useEffect(() => { load() }, [month, year])
 
   async function load() {
-    setLoading(true)
-    const firstDay = new Date(year, month, 1).toISOString().split('T')[0]
-    const lastDay  = new Date(year, month + 1, 0).toISOString().split('T')[0]
-    const [{ data:m },{ data:v },{ data:sw }] = await Promise.all([
-      supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt,mod_group').eq('role','mod').neq('status','left').order('name'),
-      supabase.from('vacation_requests').select('id,user_id,start_date,end_date').eq('status','approved').lte('start_date',lastDay).gte('end_date',firstDay),
-      supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date').eq('status','approved').gte('swap_date',firstDay).lte('swap_date',lastDay),
-    ])
-    setMods(m||[]); setVacations(v||[]); setSwaps(sw||[])
-    setLoading(false)
-  }
+  setLoading(true)
+  const firstDay = new Date(year, month, 1).toISOString().split('T')[0]
+  const lastDay  = new Date(year, month + 1, 0).toISOString().split('T')[0]
+  const [{ data:m },{ data:v },{ data:sw },{ data:bd },{ data:ov }] = await Promise.all([
+    supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt,mod_group,birthday').eq('role','mod').neq('status','left').order('name'),
+    supabase.from('vacation_requests').select('id,user_id,start_date,end_date').eq('status','approved').lte('start_date',lastDay).gte('end_date',firstDay),
+    supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date').eq('status','approved').gte('swap_date',firstDay).lte('swap_date',lastDay),
+    supabase.from('profiles').select('id,birthday').eq('role','mod').not('birthday','is',null),
+    supabase.from('shift_overrides').select('*'),
+  ])
+  setMods(m||[]); setVacations(v||[]); setSwaps(sw||[])
+  setBirthdays(bd||[])
+  setOverrides(ov||[])
+  setLoading(false)
+}
 
   function getDays() {
     const days = []
@@ -1310,9 +1390,24 @@ function PageCalendar() {
   }
 
   function getCell(mod, date) {
-    if (isOnVacation(mod.id, date)) return { label:'VAC', color:'#34d399', bg:'#34d39918' }
-    if (hasSwap(mod.id, date))      return { label:'SWAP', color:'#f59e0b', bg:'#f59e0b18' }
-    if (isOff(mod, date))           return { label:'OFF', color:'#f87171', bg:'#f8717118' }
+    const isBirthday = birthdays.some(b => {
+      if (!b.birthday || b.id !== mod.id) return false
+      const bd = new Date(b.birthday)
+      return bd.getMonth()===date.getMonth() && bd.getDate()===date.getDate()
+    })
+    if (isBirthday)                  return { label:'🎂', color:'#f59e0b', bg:'#f59e0b18' }
+    if (isOnVacation(mod.id, date))  return { label:'VAC', color:'#34d399', bg:'#34d39918' }
+    if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#f59e0b', bg:'#f59e0b18' }
+    if (isOff(mod, date))            return { label:'OFF', color:'#f87171', bg:'#f8717118' }
+    const dayName = date.toLocaleDateString('en-GB',{weekday:'long'})
+    const override = overrides.find(o => o.user_id===mod.id && o.day_of_week===dayName)
+    if (override) {
+      const color = SHIFT_COLOR[override.shift] || '#94a3b8'
+      const label = override.start_time && override.end_time
+        ? `${override.start_time}-${override.end_time}`
+        : override.shift?.split(' ')[0]||'—'
+      return { label, color, bg: color+'15' }
+    }
     const color = SHIFT_COLOR[mod.shift] || '#94a3b8'
     return { label: mod.shift?.split(' ')[0]||'—', color, bg: color+'15' }
   }
@@ -1358,7 +1453,7 @@ function PageCalendar() {
                     const cell = getCell(mod, d)
                     const isToday = d.toDateString()===today.toDateString()
                     const isWeekend = d.getDay()===0||d.getDay()===6
-                    const isWorking = cell.label!=='OFF'&&cell.label!=='VAC'&&cell.label!=='SWAP'
+                    const isWorking = cell.label!=='OFF'&&cell.label!=='VAC'&&cell.label!=='SWAP'&&cell.label!=='🎂'&&!cell.label?.includes('-')
                     return (
                       <td key={i} style={{padding:'6px 2px', textAlign:'center', borderBottom:'1px solid #0f1117', background:isToday?'#1e2433':isWeekend?'#0d1018':'transparent'}}>
                         {isWorking
@@ -1399,6 +1494,7 @@ function PageCalendar() {
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#f87171'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Day Off</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#34d399'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Vacation</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#f59e0b'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:'0.72rem'}}>🎂</span><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Birthday</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:'0.72rem',color:'#64748b'}}>↻ Rotating</span></div>
       </div>
       <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:16}}>🇬🇧 English Moderators</div>

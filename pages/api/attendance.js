@@ -43,13 +43,22 @@ export default async function handler(req, res) {
 
   if (!open) return res.status(409).json({ error: 'Not clocked in' })
 
-  if (action === 'lunch_start') {
-    if (open.lunch_start) return res.status(409).json({ error: 'Lunch already started' })
-    const { error } = await supabaseAdmin.from('attendance')
-      .update({ lunch_start: now, status: 'lunch' }).eq('id', open.id)
-    if (error) return res.status(500).json({ error: error.message })
-    return res.status(200).json({ ok: true })
+ if (action === 'lunch_start') {
+  if (open.lunch_start) return res.status(409).json({ error: 'Lunch already started' })
+  
+  // Check if anyone else is on lunch
+  const { data: onLunch } = await supabaseAdmin.from('attendance')
+    .select('id,user_id').eq('status','lunch').is('clock_out',null)
+  
+  if (onLunch && onLunch.length > 0) {
+    return res.status(409).json({ error: 'Someone is already on lunch. Please wait until they return.' })
   }
+
+  const { error } = await supabaseAdmin.from('attendance')
+    .update({ lunch_start: now, status: 'lunch' }).eq('id', open.id)
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ ok: true })
+}
 
   if (action === 'lunch_end') {
     if (!open.lunch_start) return res.status(409).json({ error: 'Lunch not started' })

@@ -42,8 +42,8 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
     locked_blacktide_rl: '',
     locked_blacktide_hunt: '', skin_manipulation: '', free_coin_abuser: '',
     phone_abuser: '', referral_abuser: '', notes: '',
-    has_bug: false, has_exploit: false, dev_notes: '', pending_tickets: [{ link:'', description:'' }],
-  important_tickets: [{ link:'', description:'' }],
+    has_bug: false, has_exploit: false, dev_notes: '', pending_tickets: [],
+    important_tickets: [],
     applications: [],
   })
   const [saving, setSaving] = useState(false)
@@ -87,8 +87,8 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
         free_coin_abuser:     form.free_coin_abuser,
         phone_abuser:         form.phone_abuser,
         referral_abuser:      form.referral_abuser,
-        pending_links:   form.pending_links,
-        important_links: form.important_links,
+        pending_links:        JSON.stringify(form.pending_tickets.filter(t=>t.link)),
+        important_links:      JSON.stringify(form.important_tickets.filter(t=>t.link)),
         notes:                form.notes,
         has_bug:              form.has_bug,
         has_exploit:          form.has_exploit,
@@ -278,8 +278,7 @@ function Layout({ profile, page, setPage, onLogout, children }) {
   { label:'Overview',   items:[{ id:'home',  label:'Dashboard', icon:Icon.home },{ id:'links', label:'Work Links', icon:<svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> }] },
   { label:'Scheduling', items:[{ id:'attendance', label:'Attendance', icon:Icon.clock },{ id:'calendar', label:'Calendar', icon:Icon.cal }] },
   { label:'Requests',   items:[{ id:'vacation', label:'Vacation Requests', icon:Icon.palm },{ id:'swaps', label:'Shift Swaps', icon:Icon.swap }] },
-  { label:'Reports',    items:[{ id:'reports', label:'My Reports', icon:Icon.report },{ id:'devreports', label:'Dev Reports', icon:Icon.report },{ id:'teamreports', label:'Team Reports', icon:Icon.report },{ id:'applications', label:'Applications', icon:Icon.report }] },
-  { label:'Team',       items:[{ id:'team', label:'Team', icon:Icon.mods }] },
+{ label:'Reports', items:[{ id:'reports', label:'My Reports', icon:Icon.report },{ id:'teamreports', label:'Team Reports', icon:Icon.report },{ id:'devreports', label:'Dev Reports', icon:Icon.report },{ id:'applications', label:'Applications', icon:Icon.report }] },  { label:'Team',       items:[{ id:'team', label:'Team', icon:Icon.mods }] },
 ]
 
   const THEMES = [
@@ -1492,22 +1491,48 @@ function ReportModal({ report, modName, onClose }) {
         </div>
         <div style={{padding:'20px 24px',overflowY:'auto',flex:1}}>
         
-          {(report.pending_links||report.important_links)&&(
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-              {report.pending_links&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}>
-                <div style={{fontSize:'0.72rem',color:'#64748b',marginBottom:6}}>🔗 Pending Links</div>
-                {report.pending_links.split(/\n/).filter(Boolean).map((link,i)=>(
-                  <a key={i} href={link} target="_blank" rel="noreferrer" style={{display:'block',fontSize:'0.78rem',color:'#60a5fa',marginBottom:4,wordBreak:'break-all'}}>{link}</a>
-                ))}
-              </div>}
-              {report.important_links&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}>
-                <div style={{fontSize:'0.72rem',color:'#64748b',marginBottom:6}}>🔗 Important Links</div>
-                {report.important_links.split(/\n/).filter(Boolean).map((link,i)=>(
-                  <a key={i} href={link} target="_blank" rel="noreferrer" style={{display:'block',fontSize:'0.78rem',color:'#f59e0b',marginBottom:4,wordBreak:'break-all'}}>{link}</a>
-                ))}
-              </div>}
-            </div>
-          )}
+         {(report.pending_links||report.important_links)&&(
+  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+    {report.pending_links&&(()=>{
+      try {
+        const tickets = JSON.parse(report.pending_links)
+        if (Array.isArray(tickets) && tickets.length>0) return (
+          <div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}>
+            <div style={{fontSize:'0.72rem',color:'#64748b',marginBottom:6}}>🔗 Pending</div>
+            {tickets.map((t,i)=>(
+              <a key={i} href={t.link} target="_blank" rel="noreferrer" style={{display:'flex',alignItems:'center',gap:6,padding:'6px 8px',borderRadius:6,background:'#141820',border:'1px solid #1e2433',marginBottom:6,textDecoration:'none',cursor:'pointer'}}
+                onMouseEnter={e=>e.currentTarget.style.borderColor='#3b82f6'}
+                onMouseLeave={e=>e.currentTarget.style.borderColor='#1e2433'}>
+                <span style={{fontSize:'0.78rem',color:'#60a5fa',flex:1}}>{t.description||t.link}</span>
+                <svg width="10" height="10" fill="none" stroke="#60a5fa" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            ))}
+          </div>
+        )
+      } catch(e) {}
+      return null
+    })()}
+    {report.important_links&&(()=>{
+      try {
+        const tickets = JSON.parse(report.important_links)
+        if (Array.isArray(tickets) && tickets.length>0) return (
+          <div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}>
+            <div style={{fontSize:'0.72rem',color:'#64748b',marginBottom:6}}>⭐ Important</div>
+            {tickets.map((t,i)=>(
+              <a key={i} href={t.link} target="_blank" rel="noreferrer" style={{display:'flex',alignItems:'center',gap:6,padding:'6px 8px',borderRadius:6,background:'#141820',border:'1px solid #1e2433',marginBottom:6,textDecoration:'none',cursor:'pointer'}}
+                onMouseEnter={e=>e.currentTarget.style.borderColor='#f59e0b'}
+                onMouseLeave={e=>e.currentTarget.style.borderColor='#1e2433'}>
+                <span style={{fontSize:'0.78rem',color:'#f59e0b',flex:1}}>{t.description||t.link}</span>
+                <svg width="10" height="10" fill="none" stroke="#f59e0b" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            ))}
+          </div>
+        )
+      } catch(e) {}
+      return null
+    })()}
+  </div>
+)}
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
             {[
               ['🔒 Blacktide — Rustyloot',report.locked_blacktide_rl],
@@ -1559,9 +1584,15 @@ function ReportCard({ report, modName, avatarUrl, onClick }) {
           {report.has_bug&&<span style={{fontSize:'0.63rem',fontWeight:700,padding:'1px 6px',borderRadius:10,background:'#f8717122',color:'#f87171'}}>🐛 Bug</span>}
           {report.has_exploit&&<span style={{fontSize:'0.63rem',fontWeight:700,padding:'1px 6px',borderRadius:10,background:'#f59e0b22',color:'#f59e0b'}}>⚠️ Exploit</span>}
         </div>
-        <div style={{fontSize:'0.73rem',color:'#64748b',marginTop:2}}>
-          {report.total_tickets} tickets · {report.mod_tickets} replies · {report.pending_tickets} pending · {report.important_tickets} important
-        </div>
+         <div style={{fontSize:'0.73rem',color:'#64748b',marginTop:2}}>
+  {(()=>{
+    let parts = []
+    try { const p=JSON.parse(report.pending_links||'[]'); if(p.length>0) parts.push(`${p.length} pending`) } catch(e){}
+    try { const i=JSON.parse(report.important_links||'[]'); if(i.length>0) parts.push(`${i.length} important`) } catch(e){}
+    if(report.notes) parts.push('📝 notes')
+    return parts.length>0 ? parts.join(' · ') : 'No highlights'
+  })()}
+</div>
       </div>
       <svg width="14" height="14" fill="none" stroke="#4a5568" strokeWidth="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
     </div>
@@ -1572,21 +1603,33 @@ function PageMyReports({ userId, profile }) {
   const [reports, setReports]   = useState([])
   const [loading, setLoading]   = useState(true)
   const [selected, setSelected] = useState(null)
+  const [search, setSearch]     = useState('')
 
   useEffect(() => {
     supabase.from('daily_reports').select('*').eq('user_id',userId).order('created_at',{ascending:false})
       .then(({data})=>{setReports(data||[]);setLoading(false)})
   },[])
 
+  const filtered = search.trim()
+    ? reports.filter(r => {
+        const q = search.toLowerCase()
+        try { const p=JSON.parse(r.pending_links||'[]'); if(p.some(t=>t.description?.toLowerCase().includes(q)||t.link?.toLowerCase().includes(q))) return true } catch(e){}
+        try { const i=JSON.parse(r.important_links||'[]'); if(i.some(t=>t.description?.toLowerCase().includes(q)||t.link?.toLowerCase().includes(q))) return true } catch(e){}
+        return [r.locked_blacktide_rl,r.locked_blacktide_hunt,r.skin_manipulation,r.free_coin_abuser,r.phone_abuser,r.referral_abuser,r.notes,r.dev_notes]
+          .some(f=>f&&f.toLowerCase().includes(q))
+      })
+    : reports
+
   return (
     <div style={s.content}>
       <h1 style={s.pageTitle}>My Reports</h1>
       {selected && <ReportModal report={selected} modName="Me" onClose={()=>setSelected(null)}/>}
-      {loading?<div style={s.empty}>Loading…</div>:reports.length===0?(
-        <div style={s.card}><p style={s.empty}>No reports submitted yet.</p></div>
+      <input style={{...s.input, width:'100%', marginBottom:16}} placeholder="Search by UID, description, notes…" value={search} onChange={e=>setSearch(e.target.value)}/>
+      {loading?<div style={s.empty}>Loading…</div>:filtered.length===0?(
+        <div style={s.card}><p style={s.empty}>No reports found.</p></div>
       ):(
         <div style={s.card}>
-          {reports.map(r=>(
+          {filtered.map(r=>(
             <ReportCard key={r.id} report={r} modName="Me" avatarUrl={profile?.avatar_url} hideDevInfo onClick={()=>setSelected(r)}/>
           ))}
         </div>
@@ -1689,6 +1732,7 @@ function PageCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [loading, setLoading]     = useState(true)
   const [birthdays, setBirthdays] = useState([])
+  const [overrides, setOverrides] = useState([])
   const year  = currentDate.getFullYear()
   const month = currentDate.getMonth()
   const isEvenMonth = (month + 1) % 2 === 0
@@ -1702,14 +1746,16 @@ function PageCalendar() {
   setLoading(true)
   const firstDay = new Date(year, month, 1).toISOString().split('T')[0]
   const lastDay  = new Date(year, month + 1, 0).toISOString().split('T')[0]
-  const [{ data:m },{ data:v },{ data:sw },{ data:bd }] = await Promise.all([
+  const [{ data:m },{ data:v },{ data:sw },{ data:bd },{ data:ov }] = await Promise.all([
     supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt,mod_group,birthday').eq('role','mod').neq('status','left').order('name'),
     supabase.from('vacation_requests').select('id,user_id,start_date,end_date').eq('status','approved').lte('start_date',lastDay).gte('end_date',firstDay),
     supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date').eq('status','approved').gte('swap_date',firstDay).lte('swap_date',lastDay),
     supabase.from('profiles').select('id,birthday').eq('role','mod').not('birthday','is',null),
+    supabase.from('shift_overrides').select('*'),
   ])
   setMods(m||[]); setVacations(v||[]); setSwaps(sw||[])
   setBirthdays(bd||[])
+  setOverrides(ov||[])
   setLoading(false)
 }
   function getDays() {
@@ -1739,19 +1785,31 @@ function PageCalendar() {
     return swaps.some(sw => sw.swap_date===d && (sw.requester_id===modId||sw.target_id===modId))
   }
 
- function getCell(mod, date) {
-  const isBirthday = birthdays.some(b => {
-    if (!b.birthday || b.id !== mod.id) return false
-    const bd = new Date(b.birthday)
-    return bd.getMonth()===date.getMonth() && bd.getDate()===date.getDate()
-  })
-  if (isBirthday)             return { label:'🎂', color:'#f59e0b', bg:'#f59e0b18' }
-  if (isOnVacation(mod.id, date)) return { label:'VAC', color:'#34d399', bg:'#34d39918' }
-  if (hasSwap(mod.id, date))      return { label:'SWAP', color:'#f59e0b', bg:'#f59e0b18' }
-  if (isOff(mod, date))           return { label:'OFF', color:'#f87171', bg:'#f8717118' }
-  const color = SHIFT_COLOR[mod.shift] || '#94a3b8'
-  return { label: mod.shift?.split(' ')[0]||'—', color, bg: color+'15' }
-}
+  function getCell(mod, date) {
+    const isBirthday = birthdays.some(b => {
+      if (!b.birthday || b.id !== mod.id) return false
+      const bd = new Date(b.birthday)
+      return bd.getMonth()===date.getMonth() && bd.getDate()===date.getDate()
+    })
+    if (isBirthday)                  return { label:'🎂', color:'#f59e0b', bg:'#f59e0b18' }
+    if (isOnVacation(mod.id, date))  return { label:'VAC', color:'#34d399', bg:'#34d39918' }
+    if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#f59e0b', bg:'#f59e0b18' }
+    if (isOff(mod, date))            return { label:'OFF', color:'#f87171', bg:'#f8717118' }
+
+    // Check override for this day
+    const dayName = date.toLocaleDateString('en-GB',{weekday:'long'})
+    const override = overrides.find(o => o.user_id===mod.id && o.day_of_week===dayName)
+    if (override) {
+      const color = SHIFT_COLOR[override.shift] || '#94a3b8'
+      const label = override.start_time && override.end_time
+        ? `${override.start_time}-${override.end_time}`
+        : override.shift?.split(' ')[0]||'—'
+      return { label, color, bg: color+'15' }
+    }
+
+    const color = SHIFT_COLOR[mod.shift] || '#94a3b8'
+    return { label: mod.shift?.split(' ')[0]||'—', color, bg: color+'15' }
+  }
 
   const days  = getDays()
   const today = new Date()
@@ -1797,7 +1855,7 @@ function ShiftCalendar({ title, accent, rows }) {
                   const cell = getCell(mod, d)
                   const isToday = d.toDateString()===today.toDateString()
                   const isWeekend = d.getDay()===0||d.getDay()===6
-                  const isWorking = cell.label!=='OFF'&&cell.label!=='VAC'&&cell.label!=='SWAP'&&cell.label!=='🎂'
+                  const isWorking = cell.label!=='OFF'&&cell.label!=='VAC'&&cell.label!=='SWAP'&&cell.label!=='🎂'&&!cell.label?.includes('-')
                   return (
                     <td key={i} style={{padding:'6px 2px', textAlign:'center', borderBottom:'1px solid #0f1117', background:isToday?'#1e2433':isWeekend?'#0d1018':'transparent'}}>
                       {isWorking
@@ -1876,7 +1934,7 @@ else if (filter==='week') { from=new Date(now); from.setDate(now.getDate()-7) }
 else if (filter==='month') { from=new Date(now.getFullYear(),now.getMonth(),1) }
 else { from=new Date(2024,0,1) }
     const [{ data:r },{ data:p }] = await Promise.all([
-      supabase.from('daily_reports').select('*').gte('report_date', from.toISOString().split('T')[0]).order('report_date',{ascending:false}),
+      supabase.from('daily_reports').select('*').gte('report_date', from.toISOString().split('T')[0]).order('created_at',{ascending:false}),
       supabase.from('profiles').select('id,name,avatar_url').eq('role','mod'),
     ])
     const map={}; (p||[]).forEach(x=>map[x.id]={name:x.name,avatar_url:x.avatar_url})
@@ -1930,64 +1988,56 @@ else { from=new Date(2024,0,1) }
 }
 
 function PageDevReports({ userId }) {
-  const [reports, setReports] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter]   = useState('all')
+  const [reports, setReports]   = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [filter, setFilter]     = useState('open')
+  const [mods, setMods]         = useState({})
+  const [selected, setSelected] = useState(null)
+  const [search, setSearch]     = useState('')
 
   useEffect(() => { load() }, [filter])
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('daily_reports')
-      .select('*')
-      .or('has_bug.eq.true,has_exploit.eq.true')
-      .order('created_at',{ascending:false})
-    const filtered = filter==='open'
-      ? (data||[]).filter(r=>!r.dev_resolved)
-      : filter==='resolved'
-        ? (data||[]).filter(r=>r.dev_resolved)
-        : (data||[])
+    const [{ data:r },{ data:p }] = await Promise.all([
+      supabase.from('daily_reports').select('*').or('has_bug.eq.true,has_exploit.eq.true').order('created_at',{ascending:false}),
+      supabase.from('profiles').select('id,name,avatar_url').eq('role','mod'),
+    ])
+    const map={}; (p||[]).forEach(x=>map[x.id]={name:x.name,avatar_url:x.avatar_url})
+    setMods(map)
+    const filtered = filter==='open'?(r||[]).filter(x=>!x.dev_resolved):filter==='resolved'?(r||[]).filter(x=>x.dev_resolved):(r||[])
     setReports(filtered)
     setLoading(false)
   }
 
+  const filtered = search.trim()
+    ? reports.filter(r => {
+        const q = search.toLowerCase()
+        return [r.dev_notes, r.notes, mods[r.user_id]?.name].some(f=>f&&f.toLowerCase().includes(q))
+      })
+    : reports
+
   return (
     <div style={s.content}>
+      {selected && <ReportModal report={selected} modName={mods[selected.user_id]?.name} onClose={()=>setSelected(null)}/>}
       <div style={s.pageHead}>
         <h1 style={s.pageTitle}>Dev Reports</h1>
         <div style={s.filterRow}>
-          {['all','open','resolved'].map(f=>(
-            <button key={f} style={{...s.filterBtn,...(filter===f?s.filterActive:{})}} onClick={()=>setFilter(f)}>
-              {f.charAt(0).toUpperCase()+f.slice(1)}
-            </button>
+          {['open','resolved','all'].map(f=>(
+            <button key={f} style={{...s.filterBtn,...(filter===f?s.filterActive:{})}} onClick={()=>setFilter(f)}>{f.charAt(0).toUpperCase()+f.slice(1)}</button>
           ))}
         </div>
       </div>
-      {loading?<div style={s.empty}>Loading…</div>:reports.length===0?(
+      <input style={{...s.input, width:'100%', marginBottom:16}} placeholder="Search by mod name, description…" value={search} onChange={e=>setSearch(e.target.value)}/>
+      {loading?<div style={s.empty}>Loading…</div>:filtered.length===0?(
         <div style={s.card}><p style={s.empty}>No dev reports yet.</p></div>
-      ):reports.map(r=>(
-        <div key={r.id} style={s.card}>
-          <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12}}>
-            <div style={{flex:1}}>
-              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6, flexWrap:'wrap'}}>
-                <span style={{fontSize:'0.87rem', fontWeight:600, color:'#f1f5f9'}}>{fmtDate(r.report_date)}</span>
-                <span style={{fontSize:'0.72rem', color:'#64748b'}}>{r.shift}</span>
-                {r.has_bug && <span style={{fontSize:'0.68rem', fontWeight:700, padding:'2px 8px', borderRadius:20, background:'#f8717122', color:'#f87171'}}>🐛 Bug</span>}
-                {r.has_exploit && <span style={{fontSize:'0.68rem', fontWeight:700, padding:'2px 8px', borderRadius:20, background:'#f59e0b22', color:'#f59e0b'}}>⚠️ Exploit</span>}
-                {r.dev_resolved
-                  ? <span style={{fontSize:'0.68rem', fontWeight:700, padding:'2px 8px', borderRadius:20, background:'#34d39922', color:'#34d399'}}>✓ Resolved</span>
-                  : <span style={{fontSize:'0.68rem', fontWeight:700, padding:'2px 8px', borderRadius:20, background:'#f59e0b22', color:'#f59e0b'}}>Pending</span>
-                }
-              </div>
-              {r.dev_notes && (
-                <div style={{background:'#0f1117', borderRadius:8, padding:'10px 14px', fontSize:'0.83rem', color:'#94a3b8', lineHeight:1.6}}>
-                  {r.dev_notes}
-                </div>
-              )}
-            </div>
-          </div>
+      ):(
+        <div style={s.card}>
+          {filtered.map(r=>(
+            <ReportCard key={r.id} report={r} modName={mods[r.user_id]?.name} avatarUrl={mods[r.user_id]?.avatar_url} onClick={()=>setSelected(r)}/>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   )
 }
@@ -2053,6 +2103,7 @@ function PageApplications({ userId }) {
   const [apps, setApps]       = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter]   = useState('all')
+  const [search, setSearch]   = useState('')
 
   useEffect(() => { load() }, [filter])
 
@@ -2063,6 +2114,13 @@ function PageApplications({ userId }) {
     setApps(filtered||[])
     setLoading(false)
   }
+
+  const filtered = search.trim()
+    ? apps.filter(a => {
+        const q = search.toLowerCase()
+        return [a.applicant_name, a.applicant_discord, a.applicant_telegram, a.message].some(f=>f&&f.toLowerCase().includes(q))
+      })
+    : apps
 
   const typeColor   = { staff:'#3b82f6', dev:'#8b5cf6' }
   const statusColor = { pending:'#f59e0b', accepted:'#34d399', declined:'#f87171' }
@@ -2079,11 +2137,12 @@ function PageApplications({ userId }) {
           ))}
         </div>
       </div>
-      {loading?<div style={s.empty}>Loading…</div>:apps.length===0?(
-        <div style={s.card}><p style={s.empty}>No applications submitted yet.</p></div>
+      <input style={{...s.input, width:'100%', marginBottom:16}} placeholder="Search by name, discord, telegram…" value={search} onChange={e=>setSearch(e.target.value)}/>
+      {loading?<div style={s.empty}>Loading…</div>:filtered.length===0?(
+        <div style={s.card}><p style={s.empty}>No applications yet.</p></div>
       ):(
         <div style={s.card}>
-          {apps.map(a=>(
+          {filtered.map(a=>(
             <div key={a.id} style={{padding:'12px 0', borderBottom:'1px solid #1e2433'}}>
               <div style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap'}}>
                 <div style={{flex:1}}>
@@ -2129,14 +2188,13 @@ export default function Dashboard() {
     })
   },[])
 
-useEffect(() => {
-  console.log('heartbeat profile:', profile?.id)
-  if (!profile?.id) return
-  const updateSeen = () => supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', profile.id)
-  updateSeen()
-  const interval = setInterval(updateSeen, 2 * 60 * 1000)
-  return () => clearInterval(interval)
-}, [profile?.id])
+  useEffect(() => {
+    if (!profile?.id) return
+    const updateSeen = () => supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', profile.id)
+    updateSeen()
+    const interval = setInterval(updateSeen, 2 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [profile?.id])
 
 
 
