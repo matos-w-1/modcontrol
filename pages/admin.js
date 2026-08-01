@@ -852,7 +852,7 @@ function PageShifts() {
   const DAYS        = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
   const SHIFTS      = ['Morning Shift','Afternoon Shift','Night Shift']
   const SHIFT_TIMES = { 'Morning Shift':'09:00–17:00','Afternoon Shift':'17:00–00:00','Night Shift':'00:00–09:00' }
-  const SHIFT_COLOR = { 'Morning Shift':'#3b82f6','Afternoon Shift':'#8b5cf6','Night Shift':'#06b6d4' }
+  const SHIFT_COLOR = { 'Morning Shift':'#22c55e','Afternoon Shift':'#f59e0b','Night Shift':'#6366f1' }
 
   useEffect(() => { load() }, [])
 
@@ -1342,7 +1342,7 @@ function PageCalendar() {
 
   const DAYS_OF_WEEK = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
   const MONTH_NAMES  = ['January','February','March','April','May','June','July','August','September','October','November','December']
-  const SHIFT_COLOR  = { 'Morning Shift':'#3b82f6','Afternoon Shift':'#8b5cf6','Night Shift':'#06b6d4' }
+  const SHIFT_COLOR  = { 'Morning Shift':'#22c55e','Afternoon Shift':'#f59e0b','Night Shift':'#6366f1' }
 
   useEffect(() => { load() }, [month, year])
 
@@ -1497,13 +1497,13 @@ function PageCalendar() {
         <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:'0.72rem'}}>🎂</span><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Birthday</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:'0.72rem',color:'#64748b'}}>↻ Rotating</span></div>
       </div>
-      <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:16}}>🇬🇧 English Moderators</div>
+      <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:16}}>🇬🇧 English Tickets</div>
       <ShiftCalendar title="Night Shift · 00:00–09:00 UTC+1"     accent='#06b6d4' rows={nightMods}/>
       <ShiftCalendar title="Morning Shift · 09:00–17:00 UTC+1"   accent='#3b82f6' rows={morningMods}/>
       <ShiftCalendar title="Afternoon Shift · 17:00–00:00 UTC+1" accent='#8b5cf6' rows={afternoonMods}/>
       {russianMods.length > 0 && (
         <>
-          <div style={{fontSize:'0.75rem', color:'#f59e0b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', margin:'24px 0 16px'}}>🇷🇺 Russian Moderators</div>
+          <div style={{fontSize:'0.75rem', color:'#f59e0b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', margin:'24px 0 16px'}}>🇷🇺 Russian Tickets</div>
           <ShiftCalendar title="Schedule" accent='#f59e0b' rows={russianMods}/>
         </>
       )}
