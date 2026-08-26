@@ -307,13 +307,26 @@ function Layout({ profile, page, setPage, onLogout, children }) {
   const [userStatus, setUserStatus]       = useState(profile?.user_status || 'online')
   const [savingSettings, setSavingSettings] = useState(false)
 
- const NAV_GROUPS = [
+
+ const ALL_NAV_GROUPS = [
   { label:'Overview',   items:[{ id:'home',  label:'Dashboard', icon:Icon.home },{ id:'links', label:'Work Links', icon:<svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> }] },
   { label:'Scheduling', items:[{ id:'attendance', label:'Attendance', icon:Icon.clock },{ id:'calendar', label:'Calendar', icon:Icon.cal }] },
   { label:'Requests',   items:[{ id:'vacation', label:'Vacation Requests', icon:Icon.palm },{ id:'swaps', label:'Shift Swaps', icon:Icon.swap }] },
-  { label:'Reports',    items:[{ id:'reports', label:'My Reports', icon:Icon.report },{ id:'teamreports', label:'Team Reports', icon:Icon.report },{ id:'devreports', label:'Dev Reports', icon:Icon.report },{ id:'applications', label:'Applications', icon:Icon.report }] },
-  { label:'Team',       items:[{ id:'team', label:'Team', icon:Icon.mods },{ id:'agenda', label:'Meeting Agenda', icon:Icon.report },{ id:'vip', label:'VIP Users', icon:Icon.mods }] },
+  { label:'Reports',    items:[
+    { id:'reports',      label:'My Reports',   icon:Icon.report },
+    { id:'teamreports',  label:'Team Reports', icon:Icon.report },
+    { id:'devreports',   label:'Dev Reports',  icon:Icon.report },
+    { id:'applications', label:'Applications', icon:Icon.report },
+  ]},
+  { label:'Team', items:[
+    { id:'team',   label:'Team',           icon:Icon.mods },
+    { id:'agenda', label:'Meeting Agenda', icon:Icon.report },
+    ...(profile?.is_vip_manager ? [{ id:'vip', label:'VIP Users', icon:Icon.mods }] : []),
+  ]},
 ]
+
+const NAV_GROUPS = ALL_NAV_GROUPS
+
 const THEMES = [
     { id:'dark',     label:'Dark',     bg:'#0f1117', accent:'#3b82f6' },
     { id:'midnight', label:'Midnight', bg:'#0a0a1a', accent:'#8b5cf6' },
@@ -359,9 +372,6 @@ const THEMES = [
     const days = Math.ceil((next-today)/86400000)
     if (days <= 1) notifs.push({ id:`bday-${p.id}`, type:'birthday', icon:'🎂', title:days===0?`🎉 ${p.name}'s birthday today!`:`${p.name}'s birthday tomorrow!`, body:days===0?'Wish them a happy birthday!':'Don\'t forget!', color:'#f59e0b', action:()=>setShowInbox(false) })
   })
-;(modAlerts||[]).forEach(a => {
-  notifs.push({ id:`alert-${a.id}`, type:'alert', icon:'🔔', title:a.title, body:a.body||'', color:'#f87171', action: async ()=>{ await supabase.from('mod_alerts').update({read:true}).eq('id',a.id); setShowInbox(false) } })
-})
 ;(modAlerts||[]).forEach(a => {
   notifs.push({ id:`alert-${a.id}`, type:'alert', icon:'🔔', title:a.title, body:a.body||'', color:'#f87171', action: async ()=>{ await supabase.from('mod_alerts').update({read:true}).eq('id',a.id); setShowInbox(false) } })
 })
@@ -424,7 +434,7 @@ const THEMES = [
               {[
                 { label:'My Profile', icon:'👤', action:()=>{ setPage('profile'); setShowUserMenu(false) } },
                 { label:'Settings',   icon:'⚙️', action:()=>{ setShowSettings(true); setShowUserMenu(false) } },
-                { label:'Help',       icon:'❓', action:()=>{ window.open('https://t.me/matos_w', '_blank'); setShowUserMenu(false) } },,
+                { label:'Help',       icon:'❓', action:()=>{ window.open('https://t.me/matos_w', '_blank'); setShowUserMenu(false) } },
                 { label:'Sign Out',   icon:'🚪', action:onLogout, danger:true },
               ].map(item => (
                 <div key={item.label} onClick={item.action}

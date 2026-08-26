@@ -179,7 +179,7 @@ function Layout({ profile, page, setPage, onLogout, children }) {
 
 const NAV_GROUPS = [
   { label:'Overview',      items:[{ id:'dashboard',       label:'Dashboard',          icon:Icon.dash }] },
-  { label:'Management',    items:[{ id:'approvals',       label:'Approvals',          icon:Icon.check },{ id:'moderators',     label:'Moderators',         icon:Icon.mods },{ id:'applications',   label:'Applications',       icon:Icon.check }] },
+  { label:'Management',    items:[{ id:'approvals',       label:'Approvals',          icon:Icon.check },{ id:'moderators',     label:'Moderators',         icon:Icon.mods },{ id:'applications',   label:'Applications',       icon:Icon.check },{ id:'vip',           label:'VIP Users',          icon:Icon.mods }] },
   { label:'Team',          items:[{ id:'hours',           label:'Hours & Attendance', icon:Icon.clock },{ id:'attendancereport',label:'Attendance Report',  icon:Icon.report },{ id:'rotating',       label:'Rotating Days Off',  icon:Icon.shifts },{ id:'modnotes',       label:'Mod Notes',          icon:Icon.report }] },
   { label:'Scheduling',    items:[{ id:'attendance',      label:'Attendance Logs',    icon:Icon.clock },{ id:'shifts',         label:'Shift Schedule',     icon:Icon.shifts },{ id:'calendar',       label:'Calendar',           icon:Icon.cal },{ id:'vacationcal',    label:'Vacation Calendar',  icon:Icon.cal },{ id:'swapmanager',    label:'Swap Manager',       icon:Icon.swap }] },
   { label:'Communication', items:[{ id:'announcements',   label:'Announcements',      icon:Icon.bell },{ id:'alertsend',      label:'Send Alert',         icon:Icon.bell },{ id:'agenda',         label:'Meeting Agenda',     icon:Icon.bell }] },
@@ -579,6 +579,7 @@ function PageModerators() {
       timezone: editMod.timezone, discord_name: editMod.discord_name, telegram_name: editMod.telegram_name,
       mod_group: editMod.mod_group, birthday: editMod.birthday,
       left_date: editMod.left_date||null, left_reason: editMod.left_reason||null,
+      is_vip_manager: editMod.is_vip_manager||false,
     }).eq('id', editMod.id)
     setEditMod(null); load()
   }
@@ -691,6 +692,16 @@ function PageModerators() {
                 <div style={s.formGroup}><label style={s.label}>Left Date</label><input style={s.input} type="date" value={editMod.left_date||''} onChange={e=>setEditMod(em=>({...em,left_date:e.target.value}))}/></div>
                 <div style={{...s.formGroup, gridColumn:'span 2'}}><label style={s.label}>Reason</label><input style={s.input} value={editMod.left_reason||''} onChange={e=>setEditMod(em=>({...em,left_reason:e.target.value}))} placeholder="Optional…"/></div>
               </>}
+            </div>
+            <div style={{marginTop:16, padding:'14px 16px', background:'#141820', borderRadius:8, border:'1px solid #1e2433'}}>
+              <div style={{fontSize:'0.78rem', fontWeight:600, color:'#f1f5f9', marginBottom:10}}>Permissions</div>
+              <label style={{display:'flex', alignItems:'center', gap:10, cursor:'pointer'}}>
+                <input type="checkbox" checked={!!editMod.is_vip_manager} onChange={e=>setEditMod(em=>({...em,is_vip_manager:e.target.checked}))} style={{width:16,height:16,accentColor:'#f59e0b'}}/>
+                <div>
+                  <div style={{fontSize:'0.83rem', color:'#f1f5f9'}}>VIP Manager</div>
+                  <div style={{fontSize:'0.72rem', color:'#64748b'}}>Can add and edit VIP users</div>
+                </div>
+              </label>
             </div>
             <div style={{display:'flex', gap:8, marginTop:16}}>
               <button style={s.btnSmGreen} onClick={saveMod}>Save Changes</button>
@@ -2416,6 +2427,171 @@ function PageMeetingAgenda({ adminId }) {
 }
 
 
+function PageVIPAdmin() {
+  const [users, setUsers]       = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
+  const [platform, setPlatform] = useState('all')
+  const [selected, setSelected] = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving]     = useState(false)
+  const [form, setForm]         = useState({ platform:'rustmagic', username:'', steam_id:'', trade_url:'', discord_id:'', deposit_range:'', registered:false, notes:'' })
+
+  const PLATFORMS = ['rustmagic','rustyloot','hunt','other']
+  const PLATFORM_COLOR = { rustmagic:'#f59e0b', rustyloot:'#f87171', hunt:'#34d399', other:'#94a3b8' }
+
+  useEffect(() => { load() }, [platform])
+
+  async function load() {
+    setLoading(true)
+    let q = supabase.from('vip_users').select('*').order('created_at',{ascending:false})
+    if (platform !== 'all') q = q.eq('platform', platform)
+    const { data } = await q
+    setUsers(data||[])
+    setLoading(false)
+  }
+
+  async function save() {
+    if (!form.username.trim()) return
+    setSaving(true)
+    if (form.id) {
+      await supabase.from('vip_users').update({...form, updated_at: new Date().toISOString()}).eq('id', form.id)
+    } else {
+      await supabase.from('vip_users').insert({...form})
+    }
+    setSaving(false); setShowForm(false)
+    setForm({ platform:'rustmagic', username:'', steam_id:'', trade_url:'', discord_id:'', deposit_range:'', registered:false, notes:'' })
+    await load()
+  }
+
+  async function deleteUser(id) {
+    if (!confirm('Delete this VIP user?')) return
+    await supabase.from('vip_users').delete().eq('id', id)
+    setSelected(null); await load()
+  }
+
+  const filtered = search.trim()
+    ? users.filter(u => [u.username, u.steam_id, u.discord_id, u.notes, u.deposit_range]
+        .some(f => f && f.toLowerCase().includes(search.toLowerCase())))
+    : users
+
+  return (
+    <div style={s.content}>
+      {selected && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setSelected(null)}>
+          <div style={{background:'#141820',border:'1px solid #1e2433',borderRadius:16,width:'100%',maxWidth:560,maxHeight:'88vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
+            <div style={{padding:'18px 24px',borderBottom:'1px solid #1e2433',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div>
+                <div style={{fontSize:'0.95rem',fontWeight:700,color:'#f1f5f9'}}>{selected.username}</div>
+                <div style={{display:'flex',gap:8,marginTop:4}}>
+                  <span style={{fontSize:'0.68rem',fontWeight:700,padding:'2px 8px',borderRadius:20,background:(PLATFORM_COLOR[selected.platform]||'#94a3b8')+'22',color:PLATFORM_COLOR[selected.platform]||'#94a3b8'}}>{selected.platform}</span>
+                  <span style={{fontSize:'0.68rem',fontWeight:700,padding:'2px 8px',borderRadius:20,background:selected.registered?'#34d39922':'#f8717122',color:selected.registered?'#34d399':'#f87171'}}>{selected.registered?'Registered':'Not Registered'}</span>
+                </div>
+              </div>
+              <span style={{color:'#4a5568',cursor:'pointer',fontSize:'1.2rem'}} onClick={()=>setSelected(null)}>✕</span>
+            </div>
+            <div style={{padding:'20px 24px',overflowY:'auto',flex:1}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+                {selected.steam_id&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}><div style={{fontSize:'0.68rem',color:'#4a5568',marginBottom:4}}>Steam ID</div><div style={{fontSize:'0.82rem',color:'#e2e8f0',wordBreak:'break-all'}}>{selected.steam_id}</div></div>}
+                {selected.discord_id&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}><div style={{fontSize:'0.68rem',color:'#4a5568',marginBottom:4}}>Discord ID</div><div style={{fontSize:'0.82rem',color:'#e2e8f0'}}>{selected.discord_id}</div></div>}
+                {selected.deposit_range&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}><div style={{fontSize:'0.68rem',color:'#4a5568',marginBottom:4}}>Deposit Range</div><div style={{fontSize:'0.85rem',fontWeight:600,color:'#34d399'}}>{selected.deposit_range}</div></div>}
+              </div>
+              {selected.trade_url&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px',marginBottom:10}}>
+                <div style={{fontSize:'0.68rem',color:'#4a5568',marginBottom:4}}>Trade URL / Profile</div>
+                <a href={selected.trade_url} target="_blank" rel="noreferrer" style={{fontSize:'0.78rem',color:'#60a5fa',wordBreak:'break-all'}}>{selected.trade_url}</a>
+              </div>}
+              {selected.notes&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px',marginBottom:10}}>
+                <div style={{fontSize:'0.68rem',color:'#4a5568',marginBottom:4}}>Notes</div>
+                <div style={{fontSize:'0.83rem',color:'#94a3b8',lineHeight:1.6}}>{selected.notes}</div>
+              </div>}
+              <div style={{display:'flex',gap:8,marginTop:16}}>
+                <button style={{...s.btnApprove,flex:1}} onClick={()=>{setForm({...selected});setSelected(null);setShowForm(true)}}>Edit</button>
+                <button style={{...s.btnReject,flex:1}} onClick={()=>deleteUser(selected.id)}>Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setShowForm(false)}>
+          <div style={{background:'#141820',border:'1px solid #1e2433',borderRadius:16,width:'100%',maxWidth:560,maxHeight:'88vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
+            <div style={{padding:'18px 24px',borderBottom:'1px solid #1e2433',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <span style={{fontSize:'0.95rem',fontWeight:700,color:'#f1f5f9'}}>{form.id?'Edit VIP User':'Add VIP User'}</span>
+              <span style={{color:'#4a5568',cursor:'pointer',fontSize:'1.2rem'}} onClick={()=>setShowForm(false)}>✕</span>
+            </div>
+            <div style={{padding:'20px 24px',overflowY:'auto',flex:1,display:'flex',flexDirection:'column',gap:12}}>
+              <div style={s.formGroup}><label style={s.label}>Platform</label>
+                <select style={s.input} value={form.platform} onChange={e=>setForm(f=>({...f,platform:e.target.value}))}>
+                  {PLATFORMS.map(p=><option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div style={s.formGroup}><label style={s.label}>Username *</label><input style={s.input} value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))}/></div>
+              <div style={s.formGroup}><label style={s.label}>Steam ID</label><input style={s.input} value={form.steam_id||''} onChange={e=>setForm(f=>({...f,steam_id:e.target.value}))}/></div>
+              <div style={s.formGroup}><label style={s.label}>Trade URL / Profile</label><input style={s.input} value={form.trade_url||''} onChange={e=>setForm(f=>({...f,trade_url:e.target.value}))}/></div>
+              <div style={s.formGroup}><label style={s.label}>Discord ID</label><input style={s.input} value={form.discord_id||''} onChange={e=>setForm(f=>({...f,discord_id:e.target.value}))}/></div>
+              <div style={s.formGroup}><label style={s.label}>Deposit Range</label><input style={s.input} value={form.deposit_range||''} onChange={e=>setForm(f=>({...f,deposit_range:e.target.value}))} placeholder="$50-$500"/></div>
+              <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
+                <input type="checkbox" checked={!!form.registered} onChange={e=>setForm(f=>({...f,registered:e.target.checked}))} style={{width:16,height:16,accentColor:'#3b82f6'}}/>
+                <span style={{fontSize:'0.83rem',color:'#94a3b8'}}>Registered on platform</span>
+              </label>
+              <div style={s.formGroup}><label style={s.label}>Notes</label><textarea style={{...s.input,minHeight:80,resize:'vertical',fontFamily:'inherit'}} value={form.notes||''} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/></div>
+            </div>
+            <div style={{padding:'16px 24px',borderTop:'1px solid #1e2433'}}>
+              <button style={{...s.btnPrimary,width:'100%'}} disabled={saving||!form.username.trim()} onClick={save}>{saving?'Saving…':'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={s.pageHead}>
+        <h1 style={s.pageTitle}>VIP Users</h1>
+        <button style={s.btnPrimary} onClick={()=>{setForm({platform:'rustmagic',username:'',steam_id:'',trade_url:'',discord_id:'',deposit_range:'',registered:false,notes:''});setShowForm(true)}}>+ Add User</button>
+      </div>
+
+      <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+        {['all',...PLATFORMS].map(p=>(
+          <button key={p} style={{...s.filterBtn,...(platform===p?s.filterActive:{})}} onClick={()=>setPlatform(p)}>
+            {p==='all'?'All':p}
+            {p!=='all'&&<span style={{marginLeft:6,fontSize:'0.65rem',background:(PLATFORM_COLOR[p]||'#94a3b8')+'33',color:PLATFORM_COLOR[p]||'#94a3b8',padding:'1px 5px',borderRadius:10}}>{users.filter(u=>u.platform===p).length}</span>}
+          </button>
+        ))}
+      </div>
+
+      <input style={{...s.input,width:'100%',marginBottom:16}} placeholder="Search by username, Steam ID, Discord ID…" value={search} onChange={e=>setSearch(e.target.value)}/>
+
+      {loading?<div style={s.empty}>Loading…</div>:filtered.length===0?(
+        <div style={s.card}><p style={s.empty}>No VIP users found.</p></div>
+      ):(
+        <div style={s.card}>
+          {filtered.map(u=>(
+            <div key={u.id} onClick={()=>setSelected(u)} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid #1e2433',cursor:'pointer'}}
+              onMouseEnter={e=>e.currentTarget.style.opacity='0.8'}
+              onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+              <div style={{width:36,height:36,borderRadius:8,background:(PLATFORM_COLOR[u.platform]||'#94a3b8')+'22',border:`1px solid ${PLATFORM_COLOR[u.platform]||'#94a3b8'}44`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.85rem',fontWeight:700,color:PLATFORM_COLOR[u.platform]||'#94a3b8',flexShrink:0}}>
+                {u.username[0].toUpperCase()}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:2}}>
+                  <span style={{fontSize:'0.87rem',fontWeight:600,color:'#f1f5f9'}}>{u.username}</span>
+                  <span style={{fontSize:'0.63rem',fontWeight:700,padding:'1px 6px',borderRadius:10,background:(PLATFORM_COLOR[u.platform]||'#94a3b8')+'22',color:PLATFORM_COLOR[u.platform]||'#94a3b8'}}>{u.platform}</span>
+                  <span style={{fontSize:'0.63rem',fontWeight:700,padding:'1px 6px',borderRadius:10,background:u.registered?'#34d39922':'#f8717122',color:u.registered?'#34d399':'#f87171'}}>{u.registered?'Registered':'Not Registered'}</span>
+                </div>
+                <div style={{fontSize:'0.73rem',color:'#64748b',display:'flex',gap:12}}>
+                  {u.deposit_range&&<span style={{color:'#34d399',fontWeight:600}}>{u.deposit_range}</span>}
+                  {u.discord_id&&u.discord_id!=='------'&&<span>💬 {u.discord_id}</span>}
+                  {u.notes&&<span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}}>{u.notes}</span>}
+                </div>
+              </div>
+              <svg width="14" height="14" fill="none" stroke="#4a5568" strokeWidth="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AdminPanel() {
   const [profile, setProfile]         = useState(null)
   const [isAdmin, setIsAdmin]         = useState(false)
@@ -2502,6 +2678,7 @@ export default function AdminPanel() {
 {page==='vacationcal'     && <PageVacationCalendar/>}
 {page==='adminlog'        && <PageAdminLog/>}
 {page==='agenda' && <PageMeetingAgenda adminId={profile?.id}/>}
+{page==='vip'    && <PageVIPAdmin/>}
       </Layout>
     </>
   )
