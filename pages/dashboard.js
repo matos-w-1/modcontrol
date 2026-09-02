@@ -2378,7 +2378,7 @@ function PageVIPUsers({ userId, profile }) {
   const [saving, setSaving]     = useState(false)
   const [form, setForm]         = useState({ platform:'rustmagic', username:'', steam_id:'', trade_url:'', discord_id:'', deposit_range:'', registered:false, notes:'' })
 
-  const isVipManager = profile?.is_vip_manager
+  const isVipManager = true
   const PLATFORMS = ['rustmagic','rustyloot','hunt','csdeals','other']
   const PLATFORM_COLOR = { rustmagic:'#f59e0b', rustyloot:'#f87171', hunt:'#34d399', csdeals:'#6366f1', other:'#94a3b8' }
 
@@ -2486,7 +2486,7 @@ function PageVIPUsers({ userId, profile }) {
 
       <div style={s.pageHead}>
         <h1 style={s.pageTitle}>VIP Users</h1>
-        {isVipManager && <button style={s.btnPrimary} onClick={()=>{ setForm({platform:'rustmagic',username:'',steam_id:'',trade_url:'',discord_id:'',deposit_range:'',registered:false,notes:''}); setShowForm(true) }}>+ Add User</button>}
+        <button style={s.btnPrimary} onClick={()=>{ setForm({platform:'rustmagic',username:'',steam_id:'',trade_url:'',discord_id:'',deposit_range:'',registered:false,notes:''}); setShowForm(true) }}>+ Add User</button>
       </div>
 
       <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
