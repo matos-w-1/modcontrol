@@ -10,23 +10,18 @@ export default function Login() {
   const router = useRouter()
 
   async function handleLogin(e) {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) { setError(error.message); setLoading(false); return }
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single()
-      router.push(profile?.role === 'admin' ? '/admin' : '/dashboard')
-    } catch (err) {
-      setError(err.message)
-      setLoading(false)
-    }
+  e.preventDefault()
+  setLoading(true)
+  setError('')
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) { setError(error.message); setLoading(false); return }
+    router.push('/dashboard')
+  } catch (err) {
+    setError(err.message)
+    setLoading(false)
   }
+}
 
   return (
     <>
