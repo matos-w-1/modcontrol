@@ -40,10 +40,14 @@ function businessDays(start, end) {
 function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
   const [form, setForm] = useState({
     locked_blacktide_rl: '',
-    locked_blacktide_hunt: '', skin_manipulation: '', free_coin_abuser: '',
+    locked_blacktide_hunt: '',
+    coinflow_csdeals: '',
+    skin_manipulation: '',
+    free_coin_abuser: '',
     phone_abuser: '', referral_abuser: '', notes: '',
-    has_bug: false, has_exploit: false, dev_notes: '', pending_tickets: [],
-    important_tickets: [],
+    has_bug: false, has_exploit: false, dev_notes: '',
+    pending_tickets: [],
+    pending_tickets_crisp: [],
     applications: [],
   })
   const [saving, setSaving] = useState(false)
@@ -65,6 +69,7 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
           ...f,
           locked_blacktide_rl:  (grouped.locked_blacktide_rl||[]).join('\n'),
           locked_blacktide_hunt:(grouped.locked_blacktide_hunt||[]).join('\n'),
+          coinflow_csdeals:     (grouped.coinflow_csdeals||[]).join('\n'),
           skin_manipulation:    (grouped.skin_manipulation||[]).join('\n'),
           free_coin_abuser:     (grouped.free_coin_abuser||[]).join('\n'),
           phone_abuser:         (grouped.phone_abuser||[]).join('\n'),
@@ -83,12 +88,13 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
         report_date:          new Date().toISOString().split('T')[0],
         locked_blacktide_rl:  form.locked_blacktide_rl,
         locked_blacktide_hunt:form.locked_blacktide_hunt,
+        coinflow_csdeals:     form.coinflow_csdeals,
         skin_manipulation:    form.skin_manipulation,
         free_coin_abuser:     form.free_coin_abuser,
         phone_abuser:         form.phone_abuser,
         referral_abuser:      form.referral_abuser,
         pending_links:        JSON.stringify(form.pending_tickets.filter(t=>t.link)),
-        important_links:      JSON.stringify(form.important_tickets.filter(t=>t.link)),
+        pending_links_crisp:  JSON.stringify(form.pending_tickets_crisp.filter(t=>t.link)),
         notes:                form.notes,
         has_bug:              form.has_bug,
         has_exploit:          form.has_exploit,
@@ -121,34 +127,32 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
         <div style={p.body}>
           {error && <div style={p.error}>{error}</div>}
 
-{/* Pending & Important */}
-<div style={p.section}>
-  <div style={p.sectionTitle}>🔗 Pending & Important</div>
-  
-  <div style={{marginBottom:16}}>
-    <div style={{fontSize:'0.75rem', color:'#60a5fa', fontWeight:600, marginBottom:8}}>Pending Tickets</div>
-    {form.pending_tickets.map((t,i)=>(
-      <div key={i} style={{display:'flex', gap:8, marginBottom:8, alignItems:'center'}}>
-        <input style={{...p.input, flex:1}} value={t.link} onChange={e=>setForm(f=>({...f, pending_tickets:f.pending_tickets.map((x,j)=>j===i?{...x,link:e.target.value}:x)}))} placeholder="https://app.intercom.com/..."/>
-        <input style={{...p.input, flex:1}} value={t.description} onChange={e=>setForm(f=>({...f, pending_tickets:f.pending_tickets.map((x,j)=>j===i?{...x,description:e.target.value}:x)}))} placeholder="What is this ticket about?"/>
-        <span style={{cursor:'pointer', color:'#f87171', fontSize:'0.8rem', flexShrink:0}} onClick={()=>setForm(f=>({...f, pending_tickets:f.pending_tickets.filter((_,j)=>j!==i)}))}>✕</span>
-      </div>
-    ))}
-    <button style={{...p.btnSkip, fontSize:'0.75rem'}} onClick={()=>setForm(f=>({...f, pending_tickets:[...f.pending_tickets, {link:'',description:''}]}))}>+ Add Pending</button>
-  </div>
-
-  <div>
-    <div style={{fontSize:'0.75rem', color:'#f59e0b', fontWeight:600, marginBottom:8}}>Important Tickets</div>
-    {form.important_tickets.map((t,i)=>(
-      <div key={i} style={{display:'flex', gap:8, marginBottom:8, alignItems:'center'}}>
-        <input style={{...p.input, flex:1}} value={t.link} onChange={e=>setForm(f=>({...f, important_tickets:f.important_tickets.map((x,j)=>j===i?{...x,link:e.target.value}:x)}))} placeholder="https://app.intercom.com/..."/>
-        <input style={{...p.input, flex:1}} value={t.description} onChange={e=>setForm(f=>({...f, important_tickets:f.important_tickets.map((x,j)=>j===i?{...x,description:e.target.value}:x)}))} placeholder="What is this ticket about?"/>
-        <span style={{cursor:'pointer', color:'#f87171', fontSize:'0.8rem', flexShrink:0}} onClick={()=>setForm(f=>({...f, important_tickets:f.important_tickets.filter((_,j)=>j!==i)}))}>✕</span>
-      </div>
-    ))}
-    <button style={{...p.btnSkip, fontSize:'0.75rem'}} onClick={()=>setForm(f=>({...f, important_tickets:[...f.important_tickets, {link:'',description:''}]}))}>+ Add Important</button>
-  </div>
-</div>
+          {/* Pending Tickets */}
+          <div style={p.section}>
+            <div style={p.sectionTitle}>🔗 Pending Tickets</div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:'0.75rem', color:'#60a5fa', fontWeight:600, marginBottom:8}}>Intercom — Rustyloot & Hunt</div>
+              {form.pending_tickets.map((t,i)=>(
+                <div key={i} style={{display:'flex', gap:8, marginBottom:8, alignItems:'center'}}>
+                  <input style={{...p.input, flex:1}} value={t.link} onChange={e=>setForm(f=>({...f, pending_tickets:f.pending_tickets.map((x,j)=>j===i?{...x,link:e.target.value}:x)}))} placeholder="https://app.intercom.com/..."/>
+                  <input style={{...p.input, flex:1}} value={t.description} onChange={e=>setForm(f=>({...f, pending_tickets:f.pending_tickets.map((x,j)=>j===i?{...x,description:e.target.value}:x)}))} placeholder="What is this ticket about?"/>
+                  <span style={{cursor:'pointer', color:'#f87171', fontSize:'0.8rem', flexShrink:0}} onClick={()=>setForm(f=>({...f, pending_tickets:f.pending_tickets.filter((_,j)=>j!==i)}))}>✕</span>
+                </div>
+              ))}
+              <button style={{...p.btnSkip, fontSize:'0.75rem'}} onClick={()=>setForm(f=>({...f, pending_tickets:[...f.pending_tickets, {link:'',description:''}]}))}>+ Add Intercom Pending</button>
+            </div>
+            <div>
+              <div style={{fontSize:'0.75rem', color:'#f59e0b', fontWeight:600, marginBottom:8}}>Crisp — CSDeals</div>
+              {form.pending_tickets_crisp.map((t,i)=>(
+                <div key={i} style={{display:'flex', gap:8, marginBottom:8, alignItems:'center'}}>
+                  <input style={{...p.input, flex:1}} value={t.link} onChange={e=>setForm(f=>({...f, pending_tickets_crisp:f.pending_tickets_crisp.map((x,j)=>j===i?{...x,link:e.target.value}:x)}))} placeholder="https://app.crisp.chat/..."/>
+                  <input style={{...p.input, flex:1}} value={t.description} onChange={e=>setForm(f=>({...f, pending_tickets_crisp:f.pending_tickets_crisp.map((x,j)=>j===i?{...x,description:e.target.value}:x)}))} placeholder="What is this ticket about?"/>
+                  <span style={{cursor:'pointer', color:'#f87171', fontSize:'0.8rem', flexShrink:0}} onClick={()=>setForm(f=>({...f, pending_tickets_crisp:f.pending_tickets_crisp.filter((_,j)=>j!==i)}))}>✕</span>
+                </div>
+              ))}
+              <button style={{...p.btnSkip, fontSize:'0.75rem'}} onClick={()=>setForm(f=>({...f, pending_tickets_crisp:[...f.pending_tickets_crisp, {link:'',description:''}]}))}>+ Add Crisp Pending</button>
+            </div>
+          </div>
 
           {/* Locked Accounts */}
           <div style={p.section}>
@@ -156,12 +160,15 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
             <div style={{marginBottom:12}}>
               <div style={{fontSize:'0.75rem', color:'#60a5fa', fontWeight:600, marginBottom:8}}>Blacktide</div>
               <div style={p.grid2}>
-                <div style={p.field}><label style={p.label}>Rustyloot (IDs)</label><textarea style={p.textarea} value={form.locked_blacktide_rl} onChange={e=>set('locked_blacktide_rl',e.target.value)} placeholder={'ID'}/></div>
-                <div style={p.field}><label style={p.label}>Hunt (IDs)</label><textarea style={p.textarea} value={form.locked_blacktide_hunt} onChange={e=>set('locked_blacktide_hunt',e.target.value)} placeholder={'ID'}/></div>
+                <div style={p.field}><label style={p.label}>Rustyloot (IDs)</label><textarea style={p.textarea} value={form.locked_blacktide_rl} onChange={e=>set('locked_blacktide_rl',e.target.value)} placeholder={'ID1\nID2'}/></div>
+                <div style={p.field}><label style={p.label}>Hunt (IDs)</label><textarea style={p.textarea} value={form.locked_blacktide_hunt} onChange={e=>set('locked_blacktide_hunt',e.target.value)} placeholder={'ID1\nID2'}/></div>
               </div>
             </div>
-            <div style={p.grid2}>
-              <div style={p.field}><label style={p.label}>Skin Manipulation — Rustyloot (IDs)</label><textarea style={p.textarea} value={form.skin_manipulation} onChange={e=>set('skin_manipulation',e.target.value)} placeholder={'ID'}/></div>
+            <div>
+              <div style={{fontSize:'0.75rem', color:'#6366f1', fontWeight:600, marginBottom:8}}>Coinflow</div>
+              <div style={p.grid2}>
+                <div style={p.field}><label style={p.label}>CSDeals (IDs)</label><textarea style={p.textarea} value={form.coinflow_csdeals} onChange={e=>set('coinflow_csdeals',e.target.value)} placeholder={'ID1\nID2'}/></div>
+              </div>
             </div>
           </div>
 
@@ -169,9 +176,10 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
           <div style={p.section}>
             <div style={p.sectionTitle}>⚠️ Abusers</div>
             <div style={p.grid3}>
-              <div style={p.field}><label style={p.label}>Free Coin — Rustyloot</label><textarea style={p.textarea} value={form.free_coin_abuser} onChange={e=>set('free_coin_abuser',e.target.value)} placeholder={'ID'}/></div>
-              <div style={p.field}><label style={p.label}>Phone Abuser — Hunt</label><textarea style={p.textarea} value={form.phone_abuser} onChange={e=>set('phone_abuser',e.target.value)} placeholder={'ID'}/></div>
-              <div style={p.field}><label style={p.label}>Referral Abuser — Hunt</label><textarea style={p.textarea} value={form.referral_abuser} onChange={e=>set('referral_abuser',e.target.value)} placeholder={'ID'}/></div>
+              <div style={p.field}><label style={p.label}>Skin Manipulation — Rustyloot</label><textarea style={p.textarea} value={form.skin_manipulation} onChange={e=>set('skin_manipulation',e.target.value)} placeholder={'ID1\nID2'}/></div>
+              <div style={p.field}><label style={p.label}>Free Coin — Rustyloot</label><textarea style={p.textarea} value={form.free_coin_abuser} onChange={e=>set('free_coin_abuser',e.target.value)} placeholder={'ID1\nID2'}/></div>
+              <div style={p.field}><label style={p.label}>Phone Abuser — Hunt</label><textarea style={p.textarea} value={form.phone_abuser} onChange={e=>set('phone_abuser',e.target.value)} placeholder={'ID1\nID2'}/></div>
+              <div style={p.field}><label style={p.label}>Referral Abuser — Hunt</label><textarea style={p.textarea} value={form.referral_abuser} onChange={e=>set('referral_abuser',e.target.value)} placeholder={'ID1\nID2'}/></div>
             </div>
           </div>
 
@@ -230,42 +238,44 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
           </div>
         </div>
         <div style={p.footer}>
-  <button style={{...p.btnSkip, marginRight:'auto'}} onClick={()=>{
-  const lines = []
-  if (form.pending_tickets.filter(t=>t.link).length>0) {
-    lines.push('🔗 Pending Tickets')
-    form.pending_tickets.filter(t=>t.link).forEach(t=>lines.push(`• ${t.description||t.link} — ${t.link}`))
-  }
-  if (form.important_tickets.filter(t=>t.link).length>0) {
-    lines.push('')
-    lines.push('⭐ Important Tickets')
-    form.important_tickets.filter(t=>t.link).forEach(t=>lines.push(`• ${t.description||t.link} — ${t.link}`))
-  }
-  const locked = [
-    form.locked_blacktide_rl   && `Blacktide RL: ${form.locked_blacktide_rl.trim()}`,
-    form.locked_blacktide_hunt && `Blacktide Hunt: ${form.locked_blacktide_hunt.trim()}`,
-    form.skin_manipulation     && `Skin Manip: ${form.skin_manipulation.trim()}`,
-  ].filter(Boolean)
-  if (locked.length>0) { lines.push(''); lines.push('🔒 Locked Accounts'); locked.forEach(l=>lines.push(`• ${l}`)) }
-  const abusers = [
-    form.free_coin_abuser  && `Free Coin: ${form.free_coin_abuser.trim()}`,
-    form.phone_abuser      && `Phone: ${form.phone_abuser.trim()}`,
-    form.referral_abuser   && `Referral: ${form.referral_abuser.trim()}`,
-  ].filter(Boolean)
-  if (abusers.length>0) { lines.push(''); lines.push('⚠️ Abusers'); abusers.forEach(a=>lines.push(`• ${a}`)) }
-  if (form.has_bug||form.has_exploit) {
-    lines.push('')
-    lines.push(`🐛 Dev Report: ${[form.has_bug?'Bug':'',form.has_exploit?'Exploit':''].filter(Boolean).join(' + ')}`)
-    if (form.dev_notes) lines.push(form.dev_notes)
-  }
-  if (form.notes) { lines.push(''); lines.push(`📝 Notes: ${form.notes}`) }
-  if (lines.length===0) { alert('Nothing to copy yet!'); return }
-  navigator.clipboard.writeText(lines.join('\n'))
-    .then(()=>alert('✓ Copied!'))
-    .catch(()=>alert('Could not copy.'))
-}}>📋 Copy Summary</button>
-  <button style={p.btnSubmit} disabled={saving} onClick={submit}>{saving?'Submitting…':'Submit & Clock Out'}</button>
-</div>
+          <button style={p.btnSkip} onClick={onSubmit}>Skip & Clock Out</button>
+          <button style={{...p.btnSkip, marginRight:'auto'}} onClick={()=>{
+            const lines = []
+            if (form.pending_tickets.filter(t=>t.link).length>0) {
+              lines.push('🔗 Pending Tickets — Intercom')
+              form.pending_tickets.filter(t=>t.link).forEach(t=>lines.push(`• ${t.description||t.link} — ${t.link}`))
+            }
+            if (form.pending_tickets_crisp.filter(t=>t.link).length>0) {
+              lines.push('')
+              lines.push('🔗 Pending Tickets — Crisp (CSDeals)')
+              form.pending_tickets_crisp.filter(t=>t.link).forEach(t=>lines.push(`• ${t.description||t.link} — ${t.link}`))
+            }
+            const locked = [
+              form.locked_blacktide_rl   && `Blacktide RL: ${form.locked_blacktide_rl.trim()}`,
+              form.locked_blacktide_hunt && `Blacktide Hunt: ${form.locked_blacktide_hunt.trim()}`,
+              form.coinflow_csdeals      && `Coinflow CSDeals: ${form.coinflow_csdeals.trim()}`,
+            ].filter(Boolean)
+            if (locked.length>0) { lines.push(''); lines.push('🔒 Locked Accounts'); locked.forEach(l=>lines.push(`• ${l}`)) }
+            const abusers = [
+              form.skin_manipulation && `Skin Manipulation: ${form.skin_manipulation.trim()}`,
+              form.free_coin_abuser  && `Free Coin: ${form.free_coin_abuser.trim()}`,
+              form.phone_abuser      && `Phone: ${form.phone_abuser.trim()}`,
+              form.referral_abuser   && `Referral: ${form.referral_abuser.trim()}`,
+            ].filter(Boolean)
+            if (abusers.length>0) { lines.push(''); lines.push('⚠️ Abusers'); abusers.forEach(a=>lines.push(`• ${a}`)) }
+            if (form.has_bug||form.has_exploit) {
+              lines.push('')
+              lines.push(`🐛 Dev Report: ${[form.has_bug?'Bug':'',form.has_exploit?'Exploit':''].filter(Boolean).join(' + ')}`)
+              if (form.dev_notes) lines.push(form.dev_notes)
+            }
+            if (form.notes) { lines.push(''); lines.push(`📝 Notes: ${form.notes}`) }
+            if (lines.length===0) { alert('Nothing to copy yet!'); return }
+            navigator.clipboard.writeText(lines.join('\n'))
+              .then(()=>alert('✓ Copied!'))
+              .catch(()=>alert('Could not copy.'))
+          }}>📋 Copy Summary</button>
+          <button style={p.btnSubmit} disabled={saving} onClick={submit}>{saving?'Submitting…':'Submit & Clock Out'}</button>
+        </div>
       </div>
     </div>
   )
@@ -312,8 +322,7 @@ function Layout({ profile, page, setPage, onLogout, children }) {
   { label:'Scheduling', items:[{ id:'attendance', label:'Attendance', icon:Icon.clock },{ id:'calendar', label:'Calendar', icon:Icon.cal }] },
   { label:'Requests',   items:[{ id:'vacation', label:'Vacation Requests', icon:Icon.palm },{ id:'swaps', label:'Shift Swaps', icon:Icon.swap }] },
   { label:'Reports',    items:[{ id:'reports', label:'My Reports', icon:Icon.report },{ id:'teamreports', label:'Team Reports', icon:Icon.report },{ id:'devreports', label:'Dev Reports', icon:Icon.report },{ id:'applications', label:'Applications', icon:Icon.report }] },
-  { label:'Team',       items:[{ id:'team', label:'Team', icon:Icon.mods },{ id:'agenda', label:'Meeting Agenda', icon:Icon.report }] },
-]
+{ label:'Team', items:[{ id:'team', label:'Team', icon:Icon.mods },{ id:'agenda', label:'Meeting Agenda', icon:Icon.report },{ id:'vip', label:'VIP Users', icon:Icon.mods }] },]
 
   const THEMES = [
     { id:'dark',     label:'Dark',     bg:'#0f1117', accent:'#3b82f6' },
@@ -603,14 +612,15 @@ function ShiftNotesWidget({ userId, attendanceId, isClockedIn }) {
   const [form, setForm]       = useState({ type:'locked_blacktide_rl', value:'' })
   const [saving, setSaving]   = useState(false)
 
-  const TYPES = [
-    { id:'locked_blacktide_rl',   label:'🔒 Blacktide — Rustyloot' },
-    { id:'locked_blacktide_hunt', label:'🔒 Blacktide — Hunt' },
-    { id:'skin_manipulation',     label:'🔒 Skin Manipulation' },
-    { id:'free_coin_abuser',      label:'⚠️ Free Coin' },
-    { id:'phone_abuser',          label:'⚠️ Phone Abuser' },
-    { id:'referral_abuser',       label:'⚠️ Referral Abuser' },
-  ]
+ const TYPES = [
+  { id:'locked_blacktide_rl',   label:'🔒 Blacktide — Rustyloot' },
+  { id:'locked_blacktide_hunt', label:'🔒 Blacktide — Hunt' },
+  { id:'coinflow_csdeals',      label:'🔒 Coinflow — CSDeals' },
+  { id:'skin_manipulation',     label:'⚠️ Skin Manipulation' },
+  { id:'free_coin_abuser',      label:'⚠️ Free Coin' },
+  { id:'phone_abuser',          label:'⚠️ Phone Abuser' },
+  { id:'referral_abuser',       label:'⚠️ Referral Abuser' },
+]
 
   useEffect(() => {
     if (!attendanceId) return
@@ -2088,22 +2098,26 @@ function PageTeam() {
 
 function PageLinks() {
   const LINKS = [
-    { category:'Support', items:[
-      { label:'Intercom', desc:'Shared inbox', url:'https://app.intercom.com/a/inbox/yeoadtsy/inbox/shared/all', color:'#3b82f6' },
-    ]},
-    { category:'Dashboards', items:[
-      { label:'Rustyloot Dashboard', desc:'User management', url:'https://dashboard.terrypoker.pro/dashboard/users', color:'#f59e0b' },
-      { label:'Hunt Dashboard',      desc:'User management', url:'https://dashboard.hunt.gg/users',                  color:'#34d399' },
-    ]},
-    { category:'Discord', items:[
-      { label:'RustyLoot Discord', desc:'Main server', url:'https://discord.com/channels/984386438160343092/984386438747529278', color:'#5865F2' },
-      { label:'Hunt Discord',      desc:'Hunt server', url:'https://discord.com/channels/1242469866573926400/1274418382942371996', color:'#5865F2' },
-    ]},
-    { category:'Sites', items:[
-      { label:'Rustyloot', desc:'Live chat', url:'https://rustyloot.gg/', color:'#f59e0b' },
-      { label:'Hunt.gg',   desc:'Live chat', url:'https://hunt.gg/',      color:'#34d399' },
-    ]},
-  ]
+  { category:'Support', items:[
+    { label:'Intercom', desc:'Shared inbox', url:'https://app.intercom.com/a/inbox/yeoadtsy/inbox/shared/all', color:'#3b82f6' },
+    { label:'Crisp',    desc:'Shared inbox', url:'https://app.crisp.chat/website/fe2e4489-7400-4bb6-8237-c8c14400a245/inbox/', color:'#f59e0b' },
+  ]},
+  { category:'Dashboards', items:[
+    { label:'Rustyloot Dashboard', desc:'User management', url:'https://dashboard.terrypoker.pro/dashboard/users', color:'#f59e0b', logo:'https://vqoxhaggxgwfktuvtoyw.supabase.co/storage/v1/object/public/logos/rustyloot.jpg' },
+    { label:'Hunt Dashboard',      desc:'User management', url:'https://dashboard.hunt.gg/users',                  color:'#34d399', logo:'https://vqoxhaggxgwfktuvtoyw.supabase.co/storage/v1/object/public/logos/hunt.jpg' },
+    { label:'CSDeals Dashboard',   desc:'User management', url:'https://dashboard.cs.deals/',                      color:'#6366f1', logo:'https://vqoxhaggxgwfktuvtoyw.supabase.co/storage/v1/object/public/logos/csdeals.jpg' },
+  ]},
+  { category:'Discord', items:[
+    { label:'RustyLoot Discord', desc:'Main server',    url:'https://discord.com/channels/984386438160343092/984386438747529278',  color:'#5865F2', logo:'https://vqoxhaggxgwfktuvtoyw.supabase.co/storage/v1/object/public/logos/rustyloot.jpg' },
+    { label:'Hunt Discord',      desc:'Hunt server',    url:'https://discord.com/channels/1242469866573926400/1274418382942371996', color:'#34d399', logo:'https://vqoxhaggxgwfktuvtoyw.supabase.co/storage/v1/object/public/logos/hunt.jpg' },
+    { label:'CSDeals Discord',   desc:'CSDeals server', url:'https://discord.gg/ZdpR52qrM',                                        color:'#6366f1', logo:'https://vqoxhaggxgwfktuvtoyw.supabase.co/storage/v1/object/public/logos/csdeals.jpg' },
+  ]},
+  { category:'Sites', items:[
+    { label:'Rustyloot', desc:'Live chat', url:'https://rustyloot.gg/', color:'#f59e0b', logo:'https://vqoxhaggxgwfktuvtoyw.supabase.co/storage/v1/object/public/logos/rustyloot.jpg' },
+    { label:'Hunt.gg',   desc:'Live chat', url:'https://hunt.gg/',      color:'#34d399', logo:'https://vqoxhaggxgwfktuvtoyw.supabase.co/storage/v1/object/public/logos/hunt.jpg' },
+    { label:'CSDeals',   desc:'Live chat', url:'https://cs.deals/',     color:'#6366f1', logo:'https://vqoxhaggxgwfktuvtoyw.supabase.co/storage/v1/object/public/logos/csdeals.jpg' },
+  ]},
+]
 
   return (
     <div style={s.content}>
@@ -2116,9 +2130,14 @@ function PageLinks() {
               <a key={link.url} href={link.url} target="_blank" rel="noreferrer" style={{display:'flex', alignItems:'center', gap:14, padding:'12px 14px', borderRadius:10, background:'#0f1117', border:'1px solid #1e2433', textDecoration:'none'}}
                 onMouseEnter={e=>e.currentTarget.style.borderColor='#334155'}
                 onMouseLeave={e=>e.currentTarget.style.borderColor='#1e2433'}>
-                <div style={{width:36, height:36, borderRadius:8, background:link.color+'22', border:`1px solid ${link.color}44`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
-                  <svg width="16" height="16" fill="none" stroke={link.color} strokeWidth="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                </div>
+               <div style={{width:36, height:36, borderRadius:8, overflow:'hidden', flexShrink:0, background:link.color+'22', border:`1px solid ${link.color}44`}}>
+  {link.logo
+    ? <img src={link.logo} alt={link.label} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+    : <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center'}}>
+        <svg width="16" height="16" fill="none" stroke={link.color} strokeWidth="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </div>
+  }
+</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:'0.87rem', fontWeight:600, color:'#f1f5f9'}}>{link.label}</div>
                   <div style={{fontSize:'0.75rem', color:'#64748b', marginTop:2}}>{link.desc}</div>
@@ -2349,6 +2368,170 @@ function PageMeetingAgenda({ userId }) {
 }
 
 
+function PageVIPUsers({ userId, profile }) {
+  const [users, setUsers]       = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
+  const [platform, setPlatform] = useState('all')
+  const [selected, setSelected] = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving]     = useState(false)
+  const [form, setForm]         = useState({ platform:'rustmagic', username:'', steam_id:'', trade_url:'', discord_id:'', deposit_range:'', registered:false, notes:'' })
+
+  const isVipManager = profile?.is_vip_manager
+  const PLATFORMS = ['rustmagic','rustyloot','hunt','csdeals','other']
+  const PLATFORM_COLOR = { rustmagic:'#f59e0b', rustyloot:'#f87171', hunt:'#34d399', csdeals:'#6366f1', other:'#94a3b8' }
+
+  useEffect(() => { load() }, [platform])
+
+  async function load() {
+    setLoading(true)
+    let q = supabase.from('vip_users').select('*').order('created_at',{ascending:false})
+    if (platform !== 'all') q = q.eq('platform', platform)
+    const { data } = await q
+    setUsers(data||[])
+    setLoading(false)
+  }
+
+  async function save() {
+    if (!form.username.trim()) return
+    setSaving(true)
+    if (form.id) {
+      await supabase.from('vip_users').update({...form, updated_at: new Date().toISOString()}).eq('id', form.id)
+    } else {
+      await supabase.from('vip_users').insert({...form, added_by: userId})
+    }
+    setSaving(false)
+    setShowForm(false)
+    setForm({ platform:'rustmagic', username:'', steam_id:'', trade_url:'', discord_id:'', deposit_range:'', registered:false, notes:'' })
+    await load()
+  }
+
+  const filtered = search.trim()
+    ? users.filter(u => [u.username, u.steam_id, u.discord_id, u.notes, u.deposit_range]
+        .some(f => f && f.toLowerCase().includes(search.toLowerCase())))
+    : users
+
+  return (
+    <div style={s.content}>
+      {selected && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setSelected(null)}>
+          <div style={{background:'#141820',border:'1px solid #1e2433',borderRadius:16,width:'100%',maxWidth:560,maxHeight:'88vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
+            <div style={{padding:'18px 24px',borderBottom:'1px solid #1e2433',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div>
+                <div style={{fontSize:'0.95rem',fontWeight:700,color:'#f1f5f9'}}>{selected.username}</div>
+                <div style={{display:'flex',gap:8,marginTop:4}}>
+                  <span style={{fontSize:'0.68rem',fontWeight:700,padding:'2px 8px',borderRadius:20,background:(PLATFORM_COLOR[selected.platform]||'#94a3b8')+'22',color:PLATFORM_COLOR[selected.platform]||'#94a3b8'}}>{selected.platform}</span>
+                  <span style={{fontSize:'0.68rem',fontWeight:700,padding:'2px 8px',borderRadius:20,background:selected.registered?'#34d39922':'#f8717122',color:selected.registered?'#34d399':'#f87171'}}>{selected.registered?'Registered':'Not Registered'}</span>
+                </div>
+              </div>
+              <span style={{color:'#4a5568',cursor:'pointer',fontSize:'1.2rem'}} onClick={()=>setSelected(null)}>✕</span>
+            </div>
+            <div style={{padding:'20px 24px',overflowY:'auto',flex:1}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+                {selected.steam_id&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}><div style={{fontSize:'0.68rem',color:'#4a5568',marginBottom:4}}>Steam ID</div><div style={{fontSize:'0.82rem',color:'#e2e8f0',wordBreak:'break-all'}}>{selected.steam_id}</div></div>}
+                {selected.discord_id&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}><div style={{fontSize:'0.68rem',color:'#4a5568',marginBottom:4}}>Discord ID</div><div style={{fontSize:'0.82rem',color:'#e2e8f0'}}>{selected.discord_id}</div></div>}
+                {selected.deposit_range&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px'}}><div style={{fontSize:'0.68rem',color:'#4a5568',marginBottom:4}}>Deposit Range</div><div style={{fontSize:'0.85rem',fontWeight:600,color:'#34d399'}}>{selected.deposit_range}</div></div>}
+              </div>
+              {selected.trade_url&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px',marginBottom:10}}>
+                <div style={{fontSize:'0.68rem',color:'#4a5568',marginBottom:4}}>Trade URL / Profile</div>
+                <a href={selected.trade_url} target="_blank" rel="noreferrer" style={{fontSize:'0.78rem',color:'#60a5fa',wordBreak:'break-all'}}>{selected.trade_url}</a>
+              </div>}
+              {selected.notes&&<div style={{background:'#0f1117',borderRadius:8,padding:'10px 12px',marginBottom:10}}>
+                <div style={{fontSize:'0.68rem',color:'#4a5568',marginBottom:4}}>Notes</div>
+                <div style={{fontSize:'0.83rem',color:'#94a3b8',lineHeight:1.6}}>{selected.notes}</div>
+              </div>}
+              {isVipManager && (
+                <button style={{...s.btnPrimary, width:'100%', marginTop:8}} onClick={()=>{
+                  setForm({...selected})
+                  setSelected(null)
+                  setShowForm(true)
+                }}>Edit</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showForm && isVipManager && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setShowForm(false)}>
+          <div style={{background:'#141820',border:'1px solid #1e2433',borderRadius:16,width:'100%',maxWidth:560,maxHeight:'88vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
+            <div style={{padding:'18px 24px',borderBottom:'1px solid #1e2433',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <span style={{fontSize:'0.95rem',fontWeight:700,color:'#f1f5f9'}}>{form.id?'Edit VIP User':'Add VIP User'}</span>
+              <span style={{color:'#4a5568',cursor:'pointer',fontSize:'1.2rem'}} onClick={()=>setShowForm(false)}>✕</span>
+            </div>
+            <div style={{padding:'20px 24px',overflowY:'auto',flex:1,display:'flex',flexDirection:'column',gap:12}}>
+              <div><label style={s.label}>Platform</label>
+                <select style={{...s.input, width:'100%', marginTop:4}} value={form.platform} onChange={e=>setForm(f=>({...f,platform:e.target.value}))}>
+                  {PLATFORMS.map(p=><option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div><label style={s.label}>Username *</label><input style={{...s.input, width:'100%', marginTop:4}} value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))}/></div>
+              <div><label style={s.label}>Steam ID</label><input style={{...s.input, width:'100%', marginTop:4}} value={form.steam_id||''} onChange={e=>setForm(f=>({...f,steam_id:e.target.value}))}/></div>
+              <div><label style={s.label}>Trade URL / Profile</label><input style={{...s.input, width:'100%', marginTop:4}} value={form.trade_url||''} onChange={e=>setForm(f=>({...f,trade_url:e.target.value}))}/></div>
+              <div><label style={s.label}>Discord ID</label><input style={{...s.input, width:'100%', marginTop:4}} value={form.discord_id||''} onChange={e=>setForm(f=>({...f,discord_id:e.target.value}))}/></div>
+              <div><label style={s.label}>Deposit Range</label><input style={{...s.input, width:'100%', marginTop:4}} value={form.deposit_range||''} onChange={e=>setForm(f=>({...f,deposit_range:e.target.value}))} placeholder="$50-$500"/></div>
+              <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
+                <input type="checkbox" checked={!!form.registered} onChange={e=>setForm(f=>({...f,registered:e.target.checked}))} style={{width:16,height:16,accentColor:'#3b82f6'}}/>
+                <span style={{fontSize:'0.83rem',color:'#94a3b8'}}>Registered on platform</span>
+              </label>
+              <div><label style={s.label}>Notes</label><textarea style={{...s.input, width:'100%', minHeight:80, resize:'vertical', fontFamily:'inherit', marginTop:4}} value={form.notes||''} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/></div>
+            </div>
+            <div style={{padding:'16px 24px',borderTop:'1px solid #1e2433'}}>
+              <button style={{...s.btnPrimary, width:'100%'}} disabled={saving||!form.username.trim()} onClick={save}>{saving?'Saving…':'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={s.pageHead}>
+        <h1 style={s.pageTitle}>VIP Users</h1>
+        {isVipManager && <button style={s.btnPrimary} onClick={()=>{ setForm({platform:'rustmagic',username:'',steam_id:'',trade_url:'',discord_id:'',deposit_range:'',registered:false,notes:''}); setShowForm(true) }}>+ Add User</button>}
+      </div>
+
+      <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+        {['all',...PLATFORMS].map(p=>(
+          <button key={p} style={{...s.filterBtn,...(platform===p?s.filterActive:{})}} onClick={()=>setPlatform(p)}>
+            {p==='all'?'All':p}
+            {p!=='all'&&<span style={{marginLeft:6,fontSize:'0.65rem',background:(PLATFORM_COLOR[p]||'#94a3b8')+'33',color:PLATFORM_COLOR[p]||'#94a3b8',padding:'1px 5px',borderRadius:10}}>{users.filter(u=>u.platform===p).length}</span>}
+          </button>
+        ))}
+      </div>
+
+      <input style={{...s.input, width:'100%', marginBottom:16}} placeholder="Search by username, Steam ID, Discord ID, notes…" value={search} onChange={e=>setSearch(e.target.value)}/>
+
+      {loading?<div style={s.empty}>Loading…</div>:filtered.length===0?(
+        <div style={s.card}><p style={s.empty}>No VIP users found.</p></div>
+      ):(
+        <div style={s.card}>
+          {filtered.map(u=>(
+            <div key={u.id} onClick={()=>setSelected(u)} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid #1e2433',cursor:'pointer'}}
+              onMouseEnter={e=>e.currentTarget.style.opacity='0.8'}
+              onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+              <div style={{width:36,height:36,borderRadius:8,background:(PLATFORM_COLOR[u.platform]||'#94a3b8')+'22',border:`1px solid ${PLATFORM_COLOR[u.platform]||'#94a3b8'}44`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.85rem',fontWeight:700,color:PLATFORM_COLOR[u.platform]||'#94a3b8',flexShrink:0}}>
+                {u.username[0].toUpperCase()}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:2}}>
+                  <span style={{fontSize:'0.87rem',fontWeight:600,color:'#f1f5f9'}}>{u.username}</span>
+                  <span style={{fontSize:'0.63rem',fontWeight:700,padding:'1px 6px',borderRadius:10,background:(PLATFORM_COLOR[u.platform]||'#94a3b8')+'22',color:PLATFORM_COLOR[u.platform]||'#94a3b8'}}>{u.platform}</span>
+                  <span style={{fontSize:'0.63rem',fontWeight:700,padding:'1px 6px',borderRadius:10,background:u.registered?'#34d39922':'#f8717122',color:u.registered?'#34d399':'#f87171'}}>{u.registered?'Registered':'Not Registered'}</span>
+                </div>
+                <div style={{fontSize:'0.73rem',color:'#64748b',display:'flex',gap:12,flexWrap:'wrap'}}>
+                  {u.deposit_range&&<span style={{color:'#34d399',fontWeight:600}}>{u.deposit_range}</span>}
+                  {u.discord_id&&<span>💬 {u.discord_id}</span>}
+                  {u.notes&&<span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}}>{u.notes}</span>}
+                </div>
+              </div>
+              <svg width="14" height="14" fill="none" stroke="#4a5568" strokeWidth="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [session, setSession]               = useState(null)
   const [profile, setProfile]               = useState(null)
@@ -2446,6 +2629,7 @@ export default function Dashboard() {
 {page==='applications' && <PageApplications userId={session?.user.id}/>}
 {page==='team'         && <PageTeam/>}
 {page==='agenda' && <PageMeetingAgenda userId={session?.user.id} profile={profile}/>}
+{page==='vip' && <PageVIPUsers userId={session?.user.id} profile={profile}/>}
       </Layout>
     </>
   )
