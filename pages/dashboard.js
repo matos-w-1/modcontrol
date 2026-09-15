@@ -28,6 +28,13 @@ const Icon = {
 
 function fmtTime(iso) { if (!iso) return '—'; return new Date(iso).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) }
 function fmtDate(d)   { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }
+// Converts a Date to 'YYYY-MM-DD' using its LOCAL calendar date, not UTC.
+// date.toISOString() converts to UTC first, which silently shifts the date
+// by a day for anyone in a timezone ahead of UTC (e.g. Portugal in summer) —
+// that was causing vacation/calendar days to be off by one.
+function toLocalISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
 function elapsed(from) {
   if (!from) return '—'
   const mins = Math.floor((Date.now() - new Date(from)) / 60000)
@@ -38,6 +45,25 @@ function businessDays(start, end) {
   let count = 0, cur = new Date(start)
   const last = new Date(end)
   while (cur <= last) { const d = cur.getDay(); if (d !== 0 && d !== 6) count++; cur.setDate(cur.getDate() + 1) }
+  return count
+}
+// Counts days in [start,end] that are NOT one of this mod's recurring
+// weekly days off (accounts for rotating_days_off_alt on odd months,
+// same rule the calendar view uses) — used for vacation-day counting,
+// since a fixed Mon-Fri assumption is wrong for mods who work weekends.
+function workingDaysInRange(start, end, profile) {
+  let count = 0
+  const cur = new Date(start)
+  const last = new Date(end)
+  while (cur <= last) {
+    const isEvenMonth = (cur.getMonth()+1) % 2 === 0
+    const offNames = profile?.rotating_days_off
+      ? (isEvenMonth ? (profile.days_off||[]) : (profile.rotating_days_off_alt||[]))
+      : (profile?.days_off||[])
+    const dayName = cur.toLocaleDateString('en-GB',{weekday:'long'})
+    if (!offNames.includes(dayName)) count++
+    cur.setDate(cur.getDate() + 1)
+  }
   return count
 }
 
@@ -89,7 +115,7 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
         user_id:              userId,
         attendance_id:        attendanceId,
         shift,
-        report_date:          new Date().toISOString().split('T')[0],
+        report_date:          toLocalISO(new Date()),
         locked_blacktide_rl:  form.locked_blacktide_rl,
         locked_blacktide_hunt:form.locked_blacktide_hunt,
         coinflow_csdeals:     form.coinflow_csdeals,
@@ -476,8 +502,8 @@ async function loadOnDuty() {
   }
 
   async function loadCalPreview() {
-    const today = new Date().toISOString().split('T')[0]
-    const in7   = new Date(Date.now()+7*86400000).toISOString().split('T')[0]
+    const today = toLocalISO(new Date())
+    const in7   = toLocalISO(new Date(Date.now()+7*86400000))
     const [{ data:m },{ data:v },{ data:sw }] = await Promise.all([
       supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt,mod_group').eq('role','mod').neq('status','left').order('shift,name'),
       supabase.from('vacation_requests').select('id,user_id,start_date,end_date').eq('status','approved').lte('start_date',in7).gte('end_date',today),
@@ -537,7 +563,7 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
   const SHIFT_COLOR = {'Morning Shift':'#3b82f6','Afternoon Shift':'#8b5cf6','Night Shift':'#06b6d4'}
 
   function getModStatus(mod, date) {
-    const d = date.toISOString().split('T')[0]
+    const d = toLocalISO(date)
     const dayName = date.toLocaleDateString('en-GB',{weekday:'long'})
     let daysOff = mod.days_off||[]
     if (mod.rotating_days_off) daysOff = isEvenMonth ? (mod.days_off||[]) : (mod.rotating_days_off_alt||[])
@@ -851,13 +877,13 @@ function PageVacation({ userId, profile, onProfileRefresh }) {
     const blocks = toBlocks(selectedDays)
     const today=new Date(); today.setHours(0,0,0,0)
     let totalDays = 0
-    blocks.forEach(b => { totalDays += businessDays(new Date(b.start), new Date(b.end)) })
+    blocks.forEach(b => { totalDays += workingDaysInRange(new Date(b.start), new Date(b.end), profile) })
     const earliest = new Date(blocks[0].start)
     const notice = Math.ceil((earliest-today)/86400000)
     const remaining=(profile?.vacation_allowance??15)-(profile?.vacation_used??0)-(profile?.vacation_pending??0)
     if(totalDays>remaining) warns.push(`⚠️ Requesting ${totalDays} days but only ${remaining} remaining.`)
     blocks.forEach(b => {
-      const blockDays = businessDays(new Date(b.start), new Date(b.end))
+      const blockDays = workingDaysInRange(new Date(b.start), new Date(b.end), profile)
       if (blockDays>5) warns.push(`⚠️ Maximum 5 consecutive days allowed (${fmtDate(b.start)} → ${fmtDate(b.end)} is ${blockDays}).`)
     })
     if(notice<21) warns.push(`⚠️ Minimum 21 days notice required (you have ${notice} days).`)
@@ -886,7 +912,7 @@ function PageVacation({ userId, profile, onProfileRefresh }) {
     if(!valid){setFormError('Please resolve the warnings above before submitting.');return}
     setSaving(true)
     for (const b of blocks) {
-      const blockDays = businessDays(new Date(b.start), new Date(b.end))
+      const blockDays = workingDaysInRange(new Date(b.start), new Date(b.end), profile)
       const {error} = await supabase.from('vacation_requests').insert({
         user_id:userId, start_date:b.start, end_date:b.end,
         days_requested:blockDays, status:'pending', submitted_at:new Date().toISOString(), validation_warnings:warnings,
@@ -923,7 +949,7 @@ function PageVacation({ userId, profile, onProfileRefresh }) {
             <div style={{marginTop:12}}>
               <button style={{...s.filterBtn,marginBottom:12}} onClick={validateRequest}>Check Eligibility</button>
               {warnings.map((w,i)=><div key={i} style={{background:'#f59e0b22',border:'1px solid #f59e0b44',color:'#f59e0b',fontSize:'0.8rem',padding:'8px 12px',borderRadius:8,marginBottom:8}}>{w}</div>)}
-              {warnings.length===0&&<div style={{background:'#34d39922',border:'1px solid #34d39944',color:'#34d399',fontSize:'0.8rem',padding:'8px 12px',borderRadius:8,marginBottom:8}}>✓ {selectedDays.filter(d=>{const wd=new Date(d).getDay();return wd!==0&&wd!==6}).length} business day(s) selected — eligible.</div>}
+              {warnings.length===0&&<div style={{background:'#34d39922',border:'1px solid #34d39944',color:'#34d399',fontSize:'0.8rem',padding:'8px 12px',borderRadius:8,marginBottom:8}}>✓ {toBlocks(selectedDays).reduce((sum,b)=>sum+workingDaysInRange(new Date(b.start),new Date(b.end),profile),0)} working day(s) selected — eligible.</div>}
             </div>
           )}
           {formError&&<div style={s.errorBox}>{formError}</div>}
@@ -1639,8 +1665,8 @@ function PageCalendar() {
 
   async function load() {
   setLoading(true)
-  const firstDay = new Date(year, month, 1).toISOString().split('T')[0]
-  const lastDay  = new Date(year, month + 1, 0).toISOString().split('T')[0]
+  const firstDay = toLocalISO(new Date(year, month, 1))
+  const lastDay  = toLocalISO(new Date(year, month + 1, 0))
   const [{ data:m },{ data:v },{ data:sw },{ data:bd },{ data:ov }] = await Promise.all([
     supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt,mod_group,birthday').eq('role','mod').neq('status','left').order('name'),
     supabase.from('vacation_requests').select('id,user_id,start_date,end_date').eq('status','approved').lte('start_date',lastDay).gte('end_date',firstDay),
@@ -1671,12 +1697,12 @@ function PageCalendar() {
   }
 
   function isOnVacation(modId, date) {
-    const d = date.toISOString().split('T')[0]
+    const d = toLocalISO(date)
     return vacations.some(v => v.user_id===modId && d>=v.start_date && d<=v.end_date)
   }
 
   function hasSwap(modId, date) {
-    const d = date.toISOString().split('T')[0]
+    const d = toLocalISO(date)
     return swaps.some(sw => sw.swap_date===d && (sw.requester_id===modId||sw.target_id===modId))
   }
 
@@ -1829,7 +1855,7 @@ else if (filter==='week') { from=new Date(now); from.setDate(now.getDate()-7) }
 else if (filter==='month') { from=new Date(now.getFullYear(),now.getMonth(),1) }
 else { from=new Date(2024,0,1) }
     const [{ data:r },{ data:p }] = await Promise.all([
-      supabase.from('daily_reports').select('*').gte('report_date', from.toISOString().split('T')[0]).order('created_at',{ascending:false}),
+      supabase.from('daily_reports').select('*').gte('report_date', toLocalISO(from)).order('created_at',{ascending:false}),
       supabase.from('profiles').select('id,name,avatar_url').eq('role','mod'),
     ])
     const map={}; (p||[]).forEach(x=>map[x.id]={name:x.name,avatar_url:x.avatar_url})
@@ -2968,7 +2994,7 @@ function PageModerators() {
   }
 
   async function markAsLeft(mod) {
-    await supabase.from('profiles').update({ status:'left', left_date: new Date().toISOString().split('T')[0] }).eq('id', mod.id)
+    await supabase.from('profiles').update({ status:'left', left_date: toLocalISO(new Date()) }).eq('id', mod.id)
     load()
   }
 
@@ -3536,7 +3562,7 @@ function PageDailyReports() {
       if (filter==='today') { from=new Date(now); from.setHours(0,0,0,0) }
       else if (filter==='week') { from=new Date(now); from.setDate(now.getDate()-7) }
       else { from=new Date(now.getFullYear(),now.getMonth(),1) }
-      q = supabase.from('daily_reports').select('*').gte('report_date', from.toISOString().split('T')[0]).order('created_at',{ascending:false})
+      q = supabase.from('daily_reports').select('*').gte('report_date', toLocalISO(from)).order('created_at',{ascending:false})
     }
     const [{ data:r },{ data:p }] = await Promise.all([
       q,
@@ -3731,8 +3757,8 @@ function AdminPageCalendar() {
 
   async function load() {
   setLoading(true)
-  const firstDay = new Date(year, month, 1).toISOString().split('T')[0]
-  const lastDay  = new Date(year, month + 1, 0).toISOString().split('T')[0]
+  const firstDay = toLocalISO(new Date(year, month, 1))
+  const lastDay  = toLocalISO(new Date(year, month + 1, 0))
   const [{ data:m },{ data:v },{ data:sw },{ data:bd },{ data:ov }] = await Promise.all([
     supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt,mod_group,birthday').eq('role','mod').neq('status','left').order('name'),
     supabase.from('vacation_requests').select('id,user_id,start_date,end_date').eq('status','approved').lte('start_date',lastDay).gte('end_date',firstDay),
@@ -3763,12 +3789,12 @@ function AdminPageCalendar() {
   }
 
   function isOnVacation(modId, date) {
-    const d = date.toISOString().split('T')[0]
+    const d = toLocalISO(date)
     return vacations.some(v => v.user_id===modId && d>=v.start_date && d<=v.end_date)
   }
 
   function hasSwap(modId, date) {
-    const d = date.toISOString().split('T')[0]
+    const d = toLocalISO(date)
     return swaps.some(sw => sw.swap_date===d && (sw.requester_id===modId||sw.target_id===modId))
   }
 
@@ -4149,7 +4175,7 @@ function PageVacationCalendar() {
   useEffect(()=>{load()},[month,year])
 
   async function load() {
-    const from=new Date(year,month,1).toISOString().split('T')[0], to=new Date(year,month+1,0).toISOString().split('T')[0]
+    const from=toLocalISO(new Date(year,month,1)), to=toLocalISO(new Date(year,month+1,0))
     const [{data:v},{data:p}]=await Promise.all([
       supabase.from('vacation_requests').select('*').eq('status','approved').lte('start_date',to).gte('end_date',from).order('start_date'),
       supabase.from('profiles').select('id,name,avatar_url').eq('role','mod'),
@@ -5100,8 +5126,8 @@ export default function App() {
   const fetchAdminOverview = useCallback(async () => {
     setAdminLoading(true)
     const now=new Date(), {monday}=getWeekRange()
-    const today=now.toISOString().split('T')[0]
-    const in14=new Date(Date.now()+14*86400000).toISOString().split('T')[0]
+    const today=toLocalISO(now)
+    const in14=toLocalISO(new Date(Date.now()+14*86400000))
     const [{data:duty},{data:att},{data:leave},{data:pending},{data:profs}] = await Promise.all([
       supabase.from('attendance').select('id,clock_in,lunch_start,status,user_id,profiles(name,role,last_seen)').is('clock_out',null).order('clock_in'),
       supabase.from('attendance').select('clock_in,clock_out,user_id').gte('clock_in',monday.toISOString()).not('clock_out','is',null),
