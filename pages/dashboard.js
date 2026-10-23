@@ -1102,6 +1102,121 @@ function SwapDebts({ userId }) {
   )
 }
 
+function SwapCalendarPicker({ userId, form, setForm }) {
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [mods, setMods]         = useState([])
+  const [vacations, setVacations] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const year = currentDate.getFullYear(), month = currentDate.getMonth()
+  const isEvenMonth = (month+1)%2===0
+  const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const today = new Date(); today.setHours(0,0,0,0)
+
+  useEffect(() => { load() }, [month, year])
+
+  async function load() {
+    setLoading(true)
+    const firstDay = toLocalISO(new Date(year,month,1))
+    const lastDay  = toLocalISO(new Date(year,month+1,0))
+    const [{data:m},{data:v}] = await Promise.all([
+      supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt').eq('role','mod').neq('status','left').order('shift').order('name'),
+      supabase.from('vacation_requests').select('user_id,start_date,end_date').eq('status','approved').lte('start_date',lastDay).gte('end_date',firstDay),
+    ])
+    setMods(m||[]); setVacations(v||[]); setLoading(false)
+  }
+
+  function isOff(mod, d) {
+    const dayName = d.toLocaleDateString('en-GB',{weekday:'long'})
+    let daysOff = mod.days_off||[]
+    if (mod.rotating_days_off) daysOff = isEvenMonth ? (mod.days_off||[]) : (mod.rotating_days_off_alt||[])
+    return daysOff.includes(dayName)
+  }
+  function isOnVacation(modId, d) {
+    const iso = toLocalISO(d)
+    return vacations.some(v => v.user_id===modId && iso>=v.start_date && iso<=v.end_date)
+  }
+
+  function getDays() {
+    const days=[]
+    const last = new Date(year,month+1,0)
+    for (let d=1; d<=last.getDate(); d++) days.push(new Date(year,month,d))
+    return days
+  }
+
+  function handleClick(mod, d) {
+    if (d < today || isOff(mod,d) || isOnVacation(mod.id,d)) return
+    const iso = toLocalISO(d)
+    if (mod.id === userId) setForm(f => ({ ...f, my_date: iso }))
+    else setForm(f => ({ ...f, target_id: mod.id, their_date: iso }))
+  }
+
+  const days = getDays()
+  const sorted = [...mods].sort((a,b) => (a.id===userId?-1:0) - (b.id===userId?-1:0))
+  const targetName = mods.find(m=>m.id===form.target_id)?.name
+
+  return (
+    <div>
+      <div style={{fontSize:'0.75rem', color:'#64748b', marginBottom:10}}>
+        Clica num dia <strong style={{color:'#f1f5f9'}}>teu</strong> para o dares, depois clica num dia de um <strong style={{color:'#f1f5f9'}}>colega</strong> para o pedires.
+      </div>
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
+        <button style={s.filterBtn} onClick={()=>setCurrentDate(new Date(year,month-1,1))}>← Prev</button>
+        <span style={{fontSize:'0.88rem', fontWeight:600, color:'#f1f5f9'}}>{MONTHS[month]} {year}</span>
+        <button style={s.filterBtn} onClick={()=>setCurrentDate(new Date(year,month+1,1))}>Next →</button>
+      </div>
+      {loading ? <div style={s.empty}>Loading…</div> : (
+        <div style={{overflowX:'auto', marginBottom:12}}>
+          <table style={{...s.table, minWidth:900}}>
+            <thead><tr>
+              <th style={{...s.th, width:110, position:'sticky', left:0, background:'#0f1117', zIndex:1}}>Mod</th>
+              {days.map((d,i) => (
+                <th key={i} style={{...s.th, textAlign:'center', minWidth:32, padding:'0 2px 10px'}}>
+                  <div style={{fontSize:'0.54rem', color:'#4a5568'}}>{DOW[(d.getDay()+6)%7]}</div>
+                  <div style={{fontSize:'0.72rem'}}>{d.getDate()}</div>
+                </th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {sorted.map((mod,mi) => {
+                const isMe = mod.id===userId
+                return (
+                  <tr key={mod.id} style={{background:isMe?'#3b82f611':mi%2===0?'transparent':'#0a0d1422'}}>
+                    <td style={{...s.td, fontSize:'0.78rem', fontWeight:isMe?700:500, whiteSpace:'nowrap', position:'sticky', left:0, background:isMe?'#182238':mi%2===0?'#141820':'#111520', zIndex:1}}>
+                      {isMe?'You':mod.name} <span style={{fontSize:'0.58rem', color:'#64748b'}}>({mod.shift?.split(' ')[0]||'—'})</span>
+                    </td>
+                    {days.map((d,i) => {
+                      const iso = toLocalISO(d)
+                      const off = isOff(mod,d), vac = isOnVacation(mod.id,d)
+                      const past = d < today
+                      const working = !off && !vac && !past
+                      const selected = isMe ? iso===form.my_date : (mod.id===form.target_id && iso===form.their_date)
+                      return (
+                        <td key={i} onClick={()=>handleClick(mod,d)} style={{padding:'5px 2px', textAlign:'center', cursor:working?'pointer':'default', opacity:past?0.35:1}}>
+                          {vac ? <div style={{fontSize:'0.52rem', fontWeight:700, color:'#34d399'}}>VAC</div>
+                            : off ? <div style={{fontSize:'0.52rem', fontWeight:700, color:'#f87171'}}>OFF</div>
+                            : <div style={{width:15, height:15, borderRadius:5, margin:'0 auto', background:selected?'#3b82f6':'#3b82f622', border:selected?'1px solid #3b82f6':'1px solid #3b82f633'}}/>}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {(form.my_date || form.their_date) && (
+        <div style={{fontSize:'0.8rem', color:'#94a3b8', marginBottom:4}}>
+          {form.my_date && <>A dar: <strong style={{color:'#f1f5f9'}}>{fmtDate(form.my_date)}</strong></>}
+          {form.my_date && form.their_date && ' · '}
+          {form.their_date && <>A pedir: <strong style={{color:'#f1f5f9'}}>{fmtDate(form.their_date)}</strong>{targetName?` de ${targetName}`:''}</>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function PageSwaps({ userId, profile }) {
   const [swaps, setSwaps]         = useState([])
   const [mods, setMods]           = useState([])
@@ -1122,7 +1237,7 @@ function PageSwaps({ userId, profile }) {
   }
 
   async function submitSwap() {
-    if(!form.target_id||!form.my_date||!form.their_date){setFormError('Please fill all fields.');return}
+    if(!form.target_id||!form.my_date||!form.their_date){setFormError('Please select both a day to give and a day to request.');return}
     setSaving(true)
     const target=mods.find(m=>m.id===form.target_id)
     const {error}=await supabase.from('shift_swaps').insert({
@@ -1155,26 +1270,10 @@ function PageSwaps({ userId, profile }) {
         <div style={s.card}>
           <div style={s.cardHead}><span style={s.cardTitle}>New Swap Request</span></div>
           {formError&&<div style={s.errorBox}>{formError}</div>}
-          <div style={s.formGrid}>
-            <div style={s.formGroup}><label style={s.label}>Swap With</label>
-              <select style={s.input} value={form.target_id} onChange={e=>setForm(f=>({...f,target_id:e.target.value}))}>
-                <option value="">Select moderator…</option>
-                {mods.map(m=><option key={m.id} value={m.id}>{m.name} ({m.shift})</option>)}
-              </select>
-            </div>
-            <div style={s.formGroup}><label style={s.label}>Notes (optional)</label>
-              <input style={s.input} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Reason…"/>
-            </div>
-            <div style={s.formGroup}>
-              <label style={s.label}>My day to give</label>
-              <input style={s.input} type="date" value={form.my_date} onChange={e=>setForm(f=>({...f,my_date:e.target.value}))}/>
-              <span style={{fontSize:'0.7rem',color:'#4a5568',marginTop:4}}>The day you are giving away</span>
-            </div>
-            <div style={s.formGroup}>
-              <label style={s.label}>Their day I want</label>
-              <input style={s.input} type="date" value={form.their_date} onChange={e=>setForm(f=>({...f,their_date:e.target.value}))}/>
-              <span style={{fontSize:'0.7rem',color:'#4a5568',marginTop:4}}>The day you want from them</span>
-            </div>
+          <SwapCalendarPicker userId={userId} form={form} setForm={setForm}/>
+          <div style={{...s.formGroup, marginTop:12}}>
+            <label style={s.label}>Notes (optional)</label>
+            <input style={s.input} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Reason…"/>
           </div>
           <button style={{...s.btnPrimary,marginTop:16}} disabled={saving} onClick={submitSwap}>{saving?'Sending…':'Send Request'}</button>
         </div>
