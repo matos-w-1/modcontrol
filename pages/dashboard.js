@@ -29,6 +29,9 @@ const Icon = {
 // Internal test accounts: hidden from every calendar view (still manageable
 // under Moderators / Shift Schedule). Add more names here if needed.
 const TEST_ACCOUNT_NAMES = ['test', 'test account']
+// One palette for every calendar: shifts and statuses use clearly different colors.
+const SHIFT_COLORS = { 'Morning Shift':'#38bdf8', 'Afternoon Shift':'#fb923c', 'Night Shift':'#a78bfa' }
+const SWAP_COLOR = '#facc15'
 function isTestAccount(p) { return TEST_ACCOUNT_NAMES.includes((p?.name || '').trim().toLowerCase()) }
 function fmtTime(iso) { if (!iso) return '—'; return new Date(iso).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) }
 function fmtDate(d)   { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }
@@ -588,7 +591,7 @@ async function loadOnDuty() {
     const d = new Date(); d.setDate(d.getDate()+i); return d
   })
 const isEvenMonth = (now.getMonth()+1) % 2 === 0
-  const SHIFT_COLOR = {'Morning Shift':'#3b82f6','Afternoon Shift':'#8b5cf6','Night Shift':'#06b6d4'}
+  const SHIFT_COLOR = SHIFT_COLORS
 
   function getModStatus(mod, date) {
     const d = toLocalISO(date)
@@ -596,7 +599,7 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
     let daysOff = mod.days_off||[]
     if (mod.rotating_days_off) daysOff = isEvenMonth ? (mod.days_off||[]) : (mod.rotating_days_off_alt||[])
     if (calVacs.some(v=>v.user_id===mod.id&&d>=v.start_date&&d<=v.end_date)) return { label:'VAC', color:'#34d399' }
-    if (calSwaps.some(sw=>sw.swap_date===d&&(sw.requester_id===mod.id||sw.target_id===mod.id))) return { label:'SWAP', color:'#f59e0b' }
+    if (calSwaps.some(sw=>sw.swap_date===d&&(sw.requester_id===mod.id||sw.target_id===mod.id))) return { label:'SWAP', color:'#facc15' }
     if (daysOff.includes(dayName)) return { label:'OFF', color:'#f87171' }
     const color = SHIFT_COLOR[mod.shift]||'#94a3b8'
     return { label:'●', color }
@@ -771,35 +774,48 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
               </tr>
             </thead>
             <tbody>
-              {calMods.map(mod => (
-                <tr key={mod.id}>
-                  <td style={{...s.td, fontWeight:500, fontSize:'0.8rem', paddingRight:12, whiteSpace:'nowrap', color: mod.id===userId?'#60a5fa':'#e2e8f0'}}>
-                    {mod.name}{mod.id===userId?' (you)':''}
-                  </td>
-                  {days7.map((d,i) => {
-                    const status = getModStatus(mod, d)
-                    const isWorking = status.label==='●'
-                    return (
-                      <td key={i} style={{...s.td, textAlign:'center', padding:'6px 2px'}}>
-                        {isWorking
-                          ? <div style={{width:8, height:8, borderRadius:'50%', background:status.color, margin:'0 auto', opacity:0.8}}/>
-                          : <div style={{fontSize:'0.6rem', fontWeight:700, color:status.color, background:status.color+'18', padding:'2px 4px', borderRadius:4, textTransform:'uppercase'}}>{status.label}</div>
-                        }
+              {['Morning Shift','Afternoon Shift','Night Shift',null].map(shiftName => {
+                const group = calMods.filter(m => shiftName ? m.shift === shiftName : !['Morning Shift','Afternoon Shift','Night Shift'].includes(m.shift))
+                if (group.length === 0) return null
+                const hours = { 'Morning Shift':'09:00–17:00', 'Afternoon Shift':'17:00–00:00', 'Night Shift':'00:00–09:00' }[shiftName]
+                return [
+                  <tr key={'h-'+(shiftName||'none')}>
+                    <td colSpan={days7.length+1} style={{padding:'14px 0 6px', fontSize:'0.68rem', fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:'#94a3b8', borderBottom:'1px solid #1e2433'}}>
+                      {shiftName ? shiftName.replace(' Shift','') : 'No shift'}{hours && <span style={{fontWeight:500, color:'#64748b', marginLeft:8, textTransform:'none', letterSpacing:0}}>{hours}</span>}
+                    </td>
+                  </tr>,
+                  ...group.map(mod => (
+                    <tr key={mod.id} style={mod.id===userId?{background:'#3b82f60d'}:undefined}>
+                      <td style={{...s.td, fontWeight:500, fontSize:'0.8rem', paddingRight:12, whiteSpace:'nowrap', color: mod.id===userId?'#60a5fa':'#e2e8f0'}}>
+                        {mod.name}{mod.id===userId?' (you)':''}
                       </td>
-                    )
-                  })}
-                </tr>
-              ))}
+                      {days7.map((d,i) => {
+                        const status = getModStatus(mod, d)
+                        const isWorking = status.label==='●'
+                        return (
+                          <td key={i} style={{...s.td, textAlign:'center', padding:'6px 2px', background: i===0?'#3b82f608':undefined}}>
+                            {isWorking
+                              ? <div style={{fontSize:'0.7rem', color:'#475569'}}>·</div>
+                              : <div style={{fontSize:'0.62rem', fontWeight:700, color:status.color, background:status.color+'22', padding:'3px 4px', borderRadius:4, textTransform:'uppercase'}}>{status.label}</div>
+                            }
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))
+                ]
+              })}
             </tbody>
           </table>
         </div>
         <div style={{display:'flex', gap:16, marginTop:12, flexWrap:'wrap'}}>
-          {[['#34d399','Vacation'],['#f59e0b','Swap'],['#f87171','Off'],['#3b82f6','Working']].map(([color,label])=>(
+          {[['#34d399','VAC = vacation'],['#f87171','OFF = day off'],['#facc15','SWAP = shift swap']].map(([color,label])=>(
             <div key={label} style={{display:'flex',alignItems:'center',gap:5}}>
-              <div style={{width:8,height:8,borderRadius:'50%',background:color}}/>
+              <div style={{width:8,height:8,borderRadius:2,background:color}}/>
               <span style={{fontSize:'0.7rem',color:'#64748b'}}>{label}</span>
             </div>
           ))}
+          <span style={{fontSize:'0.7rem',color:'#64748b'}}>· = working</span>
         </div>
       </div>
     </div>
@@ -1259,7 +1275,7 @@ function PageSwaps({ userId, profile }) {
   async function loadAll() {
     const [{data:sw},{data:ms}] = await Promise.all([
       supabase.from('shift_swaps').select('*,requester:profiles!requester_id(name,shift),target:profiles!target_id(name,shift)').or(`requester_id.eq.${userId},target_id.eq.${userId}`).order('created_at',{ascending:false}),
-      supabase.from('profiles').select('id,name,shift').eq('role','mod').neq('id',userId),
+      supabase.from('profiles').select('id,name,shift').eq('role','mod').neq('status','left').neq('id',userId),
     ])
     setSwaps(sw||[]); setMods(ms||[]); setLoading(false)
   }
@@ -1345,7 +1361,7 @@ function PageProfile({ userId, profile, onRefresh }) {
 
   const TIMEZONES = ['UTC-5','UTC-4','UTC-3','UTC-2','UTC-1','UTC+0','UTC+1','UTC+2','UTC+3','UTC+4','UTC+5','UTC+6']
   const LANGUAGES = ['English','Portuguese','Russian','Spanish','French','German','Italian']
-  const SHIFT_COLOR = {'Morning Shift':'#3b82f6','Afternoon Shift':'#8b5cf6','Night Shift':'#06b6d4'}
+  const SHIFT_COLOR = SHIFT_COLORS
   const shiftColor = SHIFT_COLOR[profile?.shift] || '#94a3b8'
   const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 
@@ -1689,7 +1705,7 @@ function PageMyReports({ userId, profile }) {
 function BirthdayCard() {
   const [people, setPeople] = useState([])
   useEffect(()=>{
-  supabase.from('profiles').select('id,name,birthday,avatar_url').eq('role','mod').not('birthday','is',null)      .then(({data})=>{
+  supabase.from('profiles').select('id,name,birthday,avatar_url').eq('role','mod').neq('status','left').not('birthday','is',null)      .then(({data})=>{
         const today=new Date(); today.setHours(0,0,0,0)
         const enriched=(data||[]).map(p=>{
           const bday=new Date(p.birthday), next=new Date(today.getFullYear(),bday.getMonth(),bday.getDate())
@@ -1728,7 +1744,7 @@ function TeamDirectory() {
     supabase.from('profiles').select('id,name,full_name,nickname,shift,timezone,discord_name,telegram_name,days_off,mod_group,status,avatar_url').eq('role','mod').neq('status','left').order('name')
       .then(({data})=>setMods(data||[]))
   },[])
-  const SHIFT_COLOR={'Morning Shift':'#3b82f6','Afternoon Shift':'#8b5cf6','Night Shift':'#06b6d4'}
+  const SHIFT_COLOR = SHIFT_COLORS
   const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
   const filtered=mods.filter(m=>m.name?.toLowerCase().includes(search.toLowerCase())||m.full_name?.toLowerCase().includes(search.toLowerCase())||m.discord_name?.toLowerCase().includes(search.toLowerCase()))
   return (
@@ -1786,7 +1802,7 @@ function PageCalendar() {
   const isEvenMonth = (month + 1) % 2 === 0
   const DAYS_OF_WEEK = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
   const MONTH_NAMES  = ['January','February','March','April','May','June','July','August','September','October','November','December']
-  const SHIFT_COLOR  = { 'Morning Shift':'#3b82f6','Afternoon Shift':'#8b5cf6','Night Shift':'#06b6d4' }
+  const SHIFT_COLOR = SHIFT_COLORS
 
   useEffect(() => { load() }, [month, year])
 
@@ -1841,7 +1857,7 @@ function PageCalendar() {
     })
     if (isBirthday)                  return { label:'🎂', color:'#f59e0b', bg:'#f59e0b18' }
     if (isOnVacation(mod.id, date))  return { label:'VAC', color:'#34d399', bg:'#34d39918' }
-    if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#f59e0b', bg:'#f59e0b18' }
+    if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#facc15', bg:'#facc1518' }
     if (isOff(mod, date))            return { label:'OFF', color:'#f87171', bg:'#f8717118' }
 
     // Check override for this day
@@ -1945,17 +1961,17 @@ function ShiftCalendar({ title, accent, rows }) {
 ))}
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#f87171'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Day Off</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#34d399'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Vacation</span></div>
-        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#f59e0b'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#facc15'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:'0.72rem',color:'#64748b'}}>↻ Rotating</span></div>
       </div>
       <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:16}}>🇬🇧 English Moderators</div>
-      <ShiftCalendar title="Night Shift · 00:00–09:00 UTC+1"     accent='#06b6d4' rows={nightMods}/>
-      <ShiftCalendar title="Morning Shift · 09:00–17:00 UTC+1"   accent='#3b82f6' rows={morningMods}/>
-      <ShiftCalendar title="Afternoon Shift · 17:00–00:00 UTC+1" accent='#8b5cf6' rows={afternoonMods}/>
+      <ShiftCalendar title="Night Shift · 00:00–09:00 UTC+1"     accent={SHIFT_COLORS['Night Shift']} rows={nightMods}/>
+      <ShiftCalendar title="Morning Shift · 09:00–17:00 UTC+1"   accent={SHIFT_COLORS['Morning Shift']} rows={morningMods}/>
+      <ShiftCalendar title="Afternoon Shift · 17:00–00:00 UTC+1" accent={SHIFT_COLORS['Afternoon Shift']} rows={afternoonMods}/>
       {russianMods.length > 0 && (
         <>
           <div style={{fontSize:'0.75rem', color:'#f59e0b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', margin:'24px 0 16px'}}>🇷🇺 Russian Moderators</div>
-          <ShiftCalendar title="Schedule" accent='#f59e0b' rows={russianMods}/>
+          <ShiftCalendar title="Schedule" accent='#94a3b8' rows={russianMods}/>
         </>
       )}
     </div>
@@ -2761,7 +2777,7 @@ function AdminPageProfile({ userId, profile, onRefresh }) {
 function AdminBirthdayList() {
   const [people, setPeople] = useState([])
   useEffect(() => {
-    supabase.from('profiles').select('id,name,birthday,avatar_url').eq('role','mod').not('birthday','is',null)
+    supabase.from('profiles').select('id,name,birthday,avatar_url').eq('role','mod').neq('status','left').not('birthday','is',null)
       .then(({data}) => {
         const today = new Date(); today.setHours(0,0,0,0)
         const enriched = (data||[]).map(p => {
@@ -3393,13 +3409,13 @@ function PageShifts() {
   const DAYS        = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
   const SHIFTS      = ['Morning Shift','Afternoon Shift','Night Shift']
   const SHIFT_TIMES = { 'Morning Shift':'09:00–17:00','Afternoon Shift':'17:00–00:00','Night Shift':'00:00–09:00' }
-  const SHIFT_COLOR = { 'Morning Shift':'#22c55e','Afternoon Shift':'#f59e0b','Night Shift':'#6366f1' }
+  const SHIFT_COLOR = SHIFT_COLORS
 
   useEffect(() => { load() }, [])
 
 async function load() {
   const [{ data }, { data:overridesData }] = await Promise.all([
-    supabase.from('profiles').select('id,name,shift,status,days_off,mod_group,rotating_days_off,rotating_days_off_alt').eq('role','mod').order('name'),
+    supabase.from('profiles').select('id,name,shift,status,days_off,mod_group,rotating_days_off,rotating_days_off_alt').eq('role','mod').neq('status','left').order('name'),
     supabase.from('shift_overrides').select('*'),
   ])
   const overridesByMod = {}
@@ -3489,13 +3505,13 @@ async function load() {
       {view==='schedule' && (
         <>
           <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12}}>🇬🇧 English Moderators</div>
-          {nightEn.length>0     && <ShiftTable title={`Night Shift · ${SHIFT_TIMES['Night Shift']} UTC+1`}     rows={nightEn}     accent='#06b6d4'/>}
-          {morningEn.length>0   && <ShiftTable title={`Morning Shift · ${SHIFT_TIMES['Morning Shift']} UTC+1`}   rows={morningEn}   accent='#3b82f6'/>}
-          {afternoonEn.length>0 && <ShiftTable title={`Afternoon Shift · ${SHIFT_TIMES['Afternoon Shift']} UTC+1`} rows={afternoonEn} accent='#8b5cf6'/>}
+          {nightEn.length>0     && <ShiftTable title={`Night Shift · ${SHIFT_TIMES['Night Shift']} UTC+1`}     rows={nightEn}     accent={SHIFT_COLORS['Night Shift']}/>}
+          {morningEn.length>0   && <ShiftTable title={`Morning Shift · ${SHIFT_TIMES['Morning Shift']} UTC+1`}   rows={morningEn}   accent={SHIFT_COLORS['Morning Shift']}/>}
+          {afternoonEn.length>0 && <ShiftTable title={`Afternoon Shift · ${SHIFT_TIMES['Afternoon Shift']} UTC+1`} rows={afternoonEn} accent={SHIFT_COLORS['Afternoon Shift']}/>}
           {russianMods.length>0 && (
             <>
               <div style={{fontSize:'0.75rem', color:'#f59e0b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', margin:'24px 0 12px'}}>🇷🇺 Russian Moderators</div>
-              <ShiftTable title='Schedule' rows={russianMods} accent='#f59e0b'/>
+              <ShiftTable title='Schedule' rows={russianMods} accent='#94a3b8'/>
             </>
           )}
         </>
@@ -3604,7 +3620,7 @@ function PageReports() {
   async function load() {
     const { monday } = getWeekRange()
     const [{ data:profs }, { data:att }] = await Promise.all([
-      supabase.from('profiles').select('id,name,vacation_used,vacation_pending,vacation_allowance').eq('role','mod'),
+      supabase.from('profiles').select('id,name,vacation_used,vacation_pending,vacation_allowance').eq('role','mod').neq('status','left'),
       supabase.from('attendance').select('user_id,clock_in,clock_out').gte('clock_in',monday.toISOString()).not('clock_out','is',null),
     ])
     setVacStats((profs||[]).map(p=>({ name:p.name, allowance:p.vacation_allowance||15, used:p.vacation_used||0, pending:p.vacation_pending||0, remaining:(p.vacation_allowance||15)-(p.vacation_used||0)-(p.vacation_pending||0) })))
@@ -3882,7 +3898,7 @@ function AdminPageCalendar() {
 
   const DAYS_OF_WEEK = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
   const MONTH_NAMES  = ['January','February','March','April','May','June','July','August','September','October','November','December']
-  const SHIFT_COLOR  = { 'Morning Shift':'#22c55e','Afternoon Shift':'#f59e0b','Night Shift':'#6366f1' }
+  const SHIFT_COLOR = SHIFT_COLORS
 
   useEffect(() => { load() }, [month, year])
 
@@ -3937,7 +3953,7 @@ function AdminPageCalendar() {
     })
     if (isBirthday)                  return { label:'🎂', color:'#f59e0b', bg:'#f59e0b18' }
     if (isOnVacation(mod.id, date))  return { label:'VAC', color:'#34d399', bg:'#34d39918' }
-    if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#f59e0b', bg:'#f59e0b18' }
+    if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#facc15', bg:'#facc1518' }
     if (isOff(mod, date))            return { label:'OFF', color:'#f87171', bg:'#f8717118' }
     const dayName = date.toLocaleDateString('en-GB',{weekday:'long'})
     const override = overrides.find(o => o.user_id===mod.id && o.day_of_week===dayName)
@@ -4033,18 +4049,18 @@ function AdminPageCalendar() {
         ))}
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#f87171'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Day Off</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#34d399'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Vacation</span></div>
-        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#f59e0b'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#facc15'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:'0.72rem'}}>🎂</span><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Birthday</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:'0.72rem',color:'#64748b'}}>↻ Rotating</span></div>
       </div>
       <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:16}}>🇬🇧 English Tickets</div>
-      <ShiftCalendar title="Night Shift · 00:00–09:00 UTC+1"     accent='#06b6d4' rows={nightMods}/>
-      <ShiftCalendar title="Morning Shift · 09:00–17:00 UTC+1"   accent='#3b82f6' rows={morningMods}/>
-      <ShiftCalendar title="Afternoon Shift · 17:00–00:00 UTC+1" accent='#8b5cf6' rows={afternoonMods}/>
+      <ShiftCalendar title="Night Shift · 00:00–09:00 UTC+1"     accent={SHIFT_COLORS['Night Shift']} rows={nightMods}/>
+      <ShiftCalendar title="Morning Shift · 09:00–17:00 UTC+1"   accent={SHIFT_COLORS['Morning Shift']} rows={morningMods}/>
+      <ShiftCalendar title="Afternoon Shift · 17:00–00:00 UTC+1" accent={SHIFT_COLORS['Afternoon Shift']} rows={afternoonMods}/>
       {russianMods.length > 0 && (
         <>
           <div style={{fontSize:'0.75rem', color:'#f59e0b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', margin:'24px 0 16px'}}>🇷🇺 Russian Tickets</div>
-          <ShiftCalendar title="Schedule" accent='#f59e0b' rows={russianMods}/>
+          <ShiftCalendar title="Schedule" accent='#94a3b8' rows={russianMods}/>
         </>
       )}
     </div>
@@ -4060,7 +4076,7 @@ function PageHours() {
   const [loading, setLoading]   = useState(false)
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
-  useEffect(() => { supabase.from('profiles').select('id,name').eq('role','mod').order('name').then(({data})=>setMods(data||[])) }, [])
+  useEffect(() => { supabase.from('profiles').select('id,name').eq('role','mod').neq('status','left').order('name').then(({data})=>setMods(data||[])) }, [])
   useEffect(() => { if(selected) load() }, [selected, month, year])
 
   async function load() {
@@ -4423,11 +4439,11 @@ function PageVacationCalendar() {
     const from=toLocalISO(new Date(year,month,1)), to=toLocalISO(new Date(year,month+1,0))
     const [{data:v},{data:p}]=await Promise.all([
       supabase.from('vacation_requests').select('*').eq('status','approved').lte('start_date',to).gte('end_date',from).order('start_date'),
-      supabase.from('profiles').select('id,name,avatar_url,days_off,rotating_days_off,rotating_days_off_alt,vacation_used,vacation_allowance').eq('role','mod'),
+      supabase.from('profiles').select('id,name,avatar_url,days_off,rotating_days_off,rotating_days_off_alt,vacation_used,vacation_allowance').eq('role','mod').neq('status','left'),
     ])
     const testIds=new Set((p||[]).filter(isTestAccount).map(x=>x.id))
     const map={}; (p||[]).filter(x=>!isTestAccount(x)).forEach(x=>map[x.id]=x)
-    setMods(map); setVacations((v||[]).filter(x=>!testIds.has(x.user_id)))
+    setMods(map); setVacations((v||[]).filter(x=>!testIds.has(x.user_id) && map[x.user_id]))
   }
 
   const daysInMonth=new Date(year,month+1,0).getDate()
@@ -5039,7 +5055,7 @@ function Layout({ profile, page, setPage, onLogout, children }) {
   const [{ data:swaps }, { data:vacs }, { data:bdays }, { data:modAlerts }] = await Promise.all([
   supabase.from('shift_swaps').select('id,requester_id,swap_date,requester:profiles!requester_id(name)').eq('target_id', profile.id).eq('status','pending'),
   supabase.from('vacation_requests').select('id,start_date,end_date,status,reviewed_at').eq('user_id', profile.id).in('status',['approved','declined']).gte('reviewed_at', new Date(Date.now()-7*86400000).toISOString()),
-  supabase.from('profiles').select('id,name,birthday').eq('role','mod').not('birthday','is',null),
+  supabase.from('profiles').select('id,name,birthday').eq('role','mod').neq('status','left').not('birthday','is',null),
   supabase.from('mod_alerts').select('*').eq('user_id', profile.id).eq('read', false),
 ])
   const notifs = []
