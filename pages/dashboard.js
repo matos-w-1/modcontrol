@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { MOD_SECTIONS, ADMIN_SECTIONS, hasPermission, filterAdminNav, filterModNav } from '../lib/permissions'
 
@@ -26,6 +26,10 @@ const Icon = {
 
 // ==================== MOD-FACING COMPONENTS ====================
 
+// Internal test accounts: hidden from every calendar view (still manageable
+// under Moderators / Shift Schedule). Add more names here if needed.
+const TEST_ACCOUNT_NAMES = ['test', 'test account']
+function isTestAccount(p) { return TEST_ACCOUNT_NAMES.includes((p?.name || '').trim().toLowerCase()) }
 function fmtTime(iso) { if (!iso) return '—'; return new Date(iso).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) }
 function fmtDate(d)   { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }
 // Converts a Date to 'YYYY-MM-DD' using its LOCAL calendar date, not UTC.
@@ -82,6 +86,29 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState(null)
+  const draftKey = `reportDraft:${userId}:${attendanceId || 'none'}`
+  const [draftReady, setDraftReady] = useState(false)
+  const [draftRestored, setDraftRestored] = useState(false)
+
+  // Restore a saved draft (so closing the popup by accident never loses the summary)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftKey)
+      if (raw) { setForm(f => ({...f, ...JSON.parse(raw)})); setDraftRestored(true) }
+    } catch(e) {}
+    setDraftReady(true)
+  }, [draftKey])
+
+  // Autosave the draft on every change
+  useEffect(() => {
+    if (!draftReady) return
+    try { localStorage.setItem(draftKey, JSON.stringify(form)) } catch(e) {}
+  }, [form, draftReady, draftKey])
+
+  function closeSafely() {
+    if (typeof window !== 'undefined' && !window.confirm('Close the report? Your text is saved as a draft and will be here when you reopen it.')) return
+    onClose()
+  }
 
   function set(key, val) { setForm(f => ({...f, [key]: val})) }
 
@@ -95,15 +122,16 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
           if (!grouped[n.type]) grouped[n.type] = []
           grouped[n.type].push(n.value)
         })
+        const fill = (cur, key) => cur || (grouped[key]||[]).join('\n')
         setForm(f=>({
           ...f,
-          locked_blacktide_rl:  (grouped.locked_blacktide_rl||[]).join('\n'),
-          locked_blacktide_hunt:(grouped.locked_blacktide_hunt||[]).join('\n'),
-          coinflow_csdeals:     (grouped.coinflow_csdeals||[]).join('\n'),
-          skin_manipulation:    (grouped.skin_manipulation||[]).join('\n'),
-          free_coin_abuser:     (grouped.free_coin_abuser||[]).join('\n'),
-          phone_abuser:         (grouped.phone_abuser||[]).join('\n'),
-          referral_abuser:      (grouped.referral_abuser||[]).join('\n'),
+          locked_blacktide_rl:  fill(f.locked_blacktide_rl, 'locked_blacktide_rl'),
+          locked_blacktide_hunt:fill(f.locked_blacktide_hunt, 'locked_blacktide_hunt'),
+          coinflow_csdeals:     fill(f.coinflow_csdeals, 'coinflow_csdeals'),
+          skin_manipulation:    fill(f.skin_manipulation, 'skin_manipulation'),
+          free_coin_abuser:     fill(f.free_coin_abuser, 'free_coin_abuser'),
+          phone_abuser:         fill(f.phone_abuser, 'phone_abuser'),
+          referral_abuser:      fill(f.referral_abuser, 'referral_abuser'),
         }))
       })
   }, [attendanceId])
@@ -138,6 +166,7 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
           }))
         )
       }
+      try { localStorage.removeItem(draftKey) } catch(e) {}
       onSubmit()
     } catch(e) { setError(e.message); setSaving(false) }
   }
@@ -151,11 +180,12 @@ function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmit }) {
               <span style={p.title}>📋 Daily Report</span>
               <span style={p.sub}>Fill in before clocking out</span>
             </div>
-            <span style={{color:'#4a5568', cursor:'pointer', fontSize:'1.2rem', padding:4, lineHeight:1}} onClick={onClose}>✕</span>
+            <span style={{color:'#4a5568', cursor:'pointer', fontSize:'1.2rem', padding:4, lineHeight:1}} onClick={closeSafely}>✕</span>
           </div>
         </div>
         <div style={p.body}>
           {error && <div style={p.error}>{error}</div>}
+          {draftRestored && <div style={{fontSize:'0.75rem', color:'#34d399', marginBottom:10}}>✓ Your previous draft was restored. It is saved automatically as you type.</div>}
 
           {/* Pending Tickets */}
           <div style={p.section}>
@@ -509,7 +539,7 @@ async function loadOnDuty() {
       supabase.from('vacation_requests').select('id,user_id,start_date,end_date').eq('status','approved').lte('start_date',in7).gte('end_date',today),
       supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date').eq('status','approved').gte('swap_date',today).lte('swap_date',in7),
     ])
-    setCalMods(m||[]); setCalVacs(v||[]); setCalSwaps(sw||[])
+    setCalMods((m||[]).filter(x=>!isTestAccount(x))); setCalVacs(v||[]); setCalSwaps(sw||[])
   }
 
   async function loadIssues() {
@@ -533,9 +563,7 @@ async function loadOnDuty() {
     const endHour = shiftEndHour[profile.shift]
     if (!endHour) return null
     const clockIn = new Date(attendance.clock_in)
-    const shiftEnd = new Date(clockIn)
-    shiftEnd.setHours(endHour, 0, 0, 0)
-    if (shiftEnd < clockIn) shiftEnd.setDate(shiftEnd.getDate()+1)
+    const shiftEnd = shiftEndFor(clockIn, profile.shift)
     const totalMins = (shiftEnd - clockIn) / 60000
     const elapsedMins = (now - clockIn) / 60000
     const pct = Math.min(100, Math.round((elapsedMins/totalMins)*100))
@@ -652,8 +680,8 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
       <span style={{flex:1,fontSize:'0.85rem',color:'#f1f5f9'}}>{r.profiles?.name}</span>
       <span style={{fontSize:'0.72rem',color:'#64748b'}}>{r.profiles?.shift?.replace(' Shift','')}</span>
       <span style={{fontSize:'0.72rem',fontWeight:600,padding:'2px 10px',borderRadius:20,
-        background:r.status==='lunch'?'#f59e0b22':'#34d39922',
-        color:r.status==='lunch'?'#f59e0b':'#34d399'}}>
+        background:r.status==='lunch'?(lunchMinutesSince(r.lunch_start)>=LUNCH_LIMIT_MIN?'#f8717122':'#f59e0b22'):'#34d39922',
+        color:r.status==='lunch'?(lunchMinutesSince(r.lunch_start)>=LUNCH_LIMIT_MIN?'#f87171':'#f59e0b'):'#34d399'}}>
         {r.status==='lunch'?`🍽 Lunch · ${elapsed(r.lunch_start)}`:'● Working'}
       </span>
     </div>
@@ -1123,7 +1151,7 @@ function SwapCalendarPicker({ userId, form, setForm }) {
       supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt').eq('role','mod').neq('status','left').order('shift').order('name'),
       supabase.from('vacation_requests').select('user_id,start_date,end_date').eq('status','approved').lte('start_date',lastDay).gte('end_date',firstDay),
     ])
-    setMods(m||[]); setVacations(v||[]); setLoading(false)
+    setMods((m||[]).filter(x=>!isTestAccount(x))); setVacations(v||[]); setLoading(false)
   }
 
   function isOff(mod, d) {
@@ -1773,7 +1801,7 @@ function PageCalendar() {
     supabase.from('profiles').select('id,birthday').eq('role','mod').not('birthday','is',null),
     supabase.from('shift_overrides').select('*'),
   ])
-  setMods(m||[]); setVacations(v||[]); setSwaps(sw||[])
+  setMods((m||[]).filter(x=>!isTestAccount(x))); setVacations(v||[]); setSwaps(sw||[])
   setBirthdays(bd||[])
   setOverrides(ov||[])
   setLoading(false)
@@ -2767,6 +2795,8 @@ function AdminBirthdayList() {
 }
 
 function PageDashboard({ onDuty, weeklyHours, upcomingLeave, pendingCount }) {
+  const [, setTick] = useState(0)
+  useEffect(() => { const t = setInterval(() => setTick(x => x+1), 30000); return () => clearInterval(t) }, [])
   const online  = onDuty.filter(r => r.status !== 'lunch')
   const onLunch = onDuty.filter(r => r.status === 'lunch')
   return (
@@ -2799,7 +2829,9 @@ function PageDashboard({ onDuty, weeklyHours, upcomingLeave, pendingCount }) {
     <div key={r.id} style={sa.dutyRow}>
       <span style={{...sa.dot, background: r.status==='lunch'?'#f59e0b':'#34d399'}}/>
       <span style={{flex:1, fontSize:'0.85rem'}}>{r.profiles?.name}</span>
-      <span style={{fontSize:'0.72rem', color:'#64748b'}}>{r.status==='lunch'?`Lunch · ${elapsed(r.lunch_start)}`:'Working'} · since {fmtTime(r.clock_in)}</span>
+      {r.status==='lunch' && lunchMinutesSince(r.lunch_start)>=LUNCH_LIMIT_MIN
+        ? <span style={{fontSize:'0.72rem', fontWeight:700, color:'#f87171'}}>⚠ Lunch over · {elapsed(r.lunch_start)}</span>
+        : <span style={{fontSize:'0.72rem', color:'#64748b'}}>{r.status==='lunch'?`Lunch · ${elapsed(r.lunch_start)}`:'Working'} · since {fmtTime(r.clock_in)}</span>}
       {lastSeen && (
         <span style={{fontSize:'0.68rem', fontWeight:600, padding:'2px 8px', borderRadius:20, background:isActive?'#34d39922':'#f59e0b22', color:isActive?'#34d399':'#f59e0b'}}>
           {isActive ? '● Active' : `${minsAgo}m ago`}
@@ -3865,7 +3897,7 @@ function AdminPageCalendar() {
     supabase.from('profiles').select('id,birthday').eq('role','mod').not('birthday','is',null),
     supabase.from('shift_overrides').select('*'),
   ])
-  setMods(m||[]); setVacations(v||[]); setSwaps(sw||[])
+  setMods((m||[]).filter(x=>!isTestAccount(x))); setVacations(v||[]); setSwaps(sw||[])
   setBirthdays(bd||[])
   setOverrides(ov||[])
   setLoading(false)
@@ -4264,23 +4296,138 @@ function PageSwapManager({ adminId }) {
   )
 }
 
+// Admin: record vacation days a moderator already took but that were never requested.
+function AddVacationPanel({ mods, onDone, onCancel }) {
+  const [userId, setUserId]   = useState('')
+  const [start, setStart]     = useState('')
+  const [end, setEnd]         = useState('')
+  const [override, setOverride] = useState('')
+  const [notes, setNotes]     = useState('')
+  const [clash, setClash]     = useState([])
+  const [saving, setSaving]   = useState(false)
+  const [error, setError]     = useState(null)
+
+  const mod = mods.find(m => m.id === userId)
+  const validRange = !!(userId && start && end && end >= start)
+  const counted = validRange ? workingDaysInRange(new Date(start+'T00:00:00'), new Date(end+'T00:00:00'), mod) : 0
+  const days = override !== '' ? Number(override) : counted
+  const allowance = mod?.vacation_allowance || 15
+  const usedAfter = (mod?.vacation_used || 0) + (Number.isFinite(days) ? days : 0)
+
+  // Warn about vacations this mod already has in the same dates
+  useEffect(() => {
+    setClash([])
+    if (!validRange) return
+    supabase.from('vacation_requests').select('id,start_date,end_date,status')
+      .eq('user_id', userId).in('status', ['approved','pending'])
+      .lte('start_date', end).gte('end_date', start)
+      .then(({ data }) => setClash(data || []))
+  }, [userId, start, end])
+
+  async function save() {
+    setError(null)
+    if (!validRange) { setError('Choose a moderator and a valid start and end date.'); return }
+    if (!Number.isFinite(days) || days <= 0) { setError('The number of vacation days must be greater than 0.'); return }
+    if (clash.length > 0) { setError('This moderator already has vacation in these dates. Delete the existing one first or pick other dates.'); return }
+    if (usedAfter > allowance && !window.confirm(`${mod.name} will have ${usedAfter} of ${allowance} vacation days used (over the allowance). Add anyway?`)) return
+    setSaving(true)
+    try {
+      const now = new Date().toISOString()
+      const { error: e1 } = await supabase.from('vacation_requests').insert({
+        user_id: userId, start_date: start, end_date: end, days_requested: days,
+        status: 'approved', admin_notes: notes.trim() || 'Added by admin',
+        submitted_at: now, reviewed_at: now,
+      })
+      if (e1) throw new Error(e1.message)
+      const { data: prof } = await supabase.from('profiles').select('vacation_used').eq('id', userId).single()
+      const { error: e2 } = await supabase.from('profiles').update({ vacation_used: (prof?.vacation_used || 0) + days }).eq('id', userId)
+      if (e2) throw new Error(e2.message)
+      onDone()
+    } catch (e) { setError(e.message); setSaving(false) }
+  }
+
+  const field = { display:'flex', flexDirection:'column', gap:6, minWidth:150 }
+  return (
+    <div style={sa.card}>
+      <div style={sa.cardHead}>
+        <span style={sa.cardTitle}>Add vacation already taken</span>
+        <button style={sa.filterBtn} onClick={onCancel}>Cancel</button>
+      </div>
+      <p style={{fontSize:'0.78rem', color:'#64748b', marginTop:0}}>Registers an approved vacation for dates that were never requested. Past dates are allowed. Only the days the moderator would have worked are counted (their days off are skipped).</p>
+      {error && <div style={sa.errorBox}>{error}</div>}
+      <div style={{display:'flex', gap:14, flexWrap:'wrap', alignItems:'flex-end'}}>
+        <div style={field}>
+          <span style={sa.label}>Moderator</span>
+          <select style={sa.input} value={userId} onChange={e=>setUserId(e.target.value)}>
+            <option value="">Select…</option>
+            {mods.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+        </div>
+        <div style={field}>
+          <span style={sa.label}>First day of vacation</span>
+          <input type="date" style={sa.input} value={start} onChange={e=>{ setStart(e.target.value); if (!end || end < e.target.value) setEnd(e.target.value) }}/>
+        </div>
+        <div style={field}>
+          <span style={sa.label}>Last day of vacation</span>
+          <input type="date" style={sa.input} value={end} min={start || undefined} onChange={e=>setEnd(e.target.value)}/>
+        </div>
+        <div style={{...field, minWidth:110}}>
+          <span style={sa.label}>Days to count</span>
+          <input type="number" min="0" step="1" style={sa.input} value={override} placeholder={validRange ? String(counted) : 'auto'} onChange={e=>setOverride(e.target.value)}/>
+        </div>
+      </div>
+      <div style={{...field, marginTop:14}}>
+        <span style={sa.label}>Note (optional)</span>
+        <input style={sa.input} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="e.g. Took these days before the system had vacation requests"/>
+      </div>
+      {validRange && (
+        <div style={{marginTop:14, fontSize:'0.82rem', color:'#cbd5e1'}}>
+          <strong style={{color:'#34d399'}}>{Number.isFinite(days) ? days : 0} vacation day(s)</strong> will be added for {mod?.name} ({fmtDate(start)} → {fmtDate(end)}).
+          {override === '' && <span style={{color:'#64748b'}}> Counted automatically, skipping their days off. Type a number above to override.</span>}
+          <div style={{color: usedAfter > allowance ? '#f87171' : '#64748b', marginTop:4}}>Used after: {usedAfter} / {allowance}</div>
+        </div>
+      )}
+      {clash.length > 0 && (
+        <div style={{...sa.errorBox, marginTop:12, marginBottom:0}}>
+          ⚠ {mod?.name} already has vacation in these dates: {clash.map(c => `${fmtDate(c.start_date)} → ${fmtDate(c.end_date)} (${c.status})`).join(', ')}
+        </div>
+      )}
+      <div style={{marginTop:16}}>
+        <button style={{...sa.btnPrimary, opacity:(saving||clash.length>0)?0.5:1}} disabled={saving||clash.length>0} onClick={save}>{saving ? 'Saving…' : 'Add vacation'}</button>
+      </div>
+    </div>
+  )
+}
+
 function PageVacationCalendar() {
   const [vacations, setVacations] = useState([])
   const [mods, setMods]           = useState({})
   const [month, setMonth]         = useState(new Date().getMonth())
   const [year, setYear]           = useState(new Date().getFullYear())
+  const [showAdd, setShowAdd]     = useState(false)
   const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December']
 
   useEffect(()=>{load()},[month,year])
+
+  // Remove an approved vacation (added by mistake) and give the days back.
+  async function removeVacation(vac) {
+    const name = mods[vac.user_id]?.name || 'this moderator'
+    if (!window.confirm(`Delete ${name}'s vacation ${fmtDate(vac.start_date)} → ${fmtDate(vac.end_date)} (${vac.days_requested} days)? The days will be given back.`)) return
+    const { data: prof } = await supabase.from('profiles').select('vacation_used').eq('id', vac.user_id).single()
+    await supabase.from('vacation_requests').delete().eq('id', vac.id)
+    await supabase.from('profiles').update({ vacation_used: Math.max(0, (prof?.vacation_used||0) - (vac.days_requested||0)) }).eq('id', vac.user_id)
+    load()
+  }
 
   async function load() {
     const from=toLocalISO(new Date(year,month,1)), to=toLocalISO(new Date(year,month+1,0))
     const [{data:v},{data:p}]=await Promise.all([
       supabase.from('vacation_requests').select('*').eq('status','approved').lte('start_date',to).gte('end_date',from).order('start_date'),
-      supabase.from('profiles').select('id,name,avatar_url').eq('role','mod'),
+      supabase.from('profiles').select('id,name,avatar_url,days_off,rotating_days_off,rotating_days_off_alt,vacation_used,vacation_allowance').eq('role','mod'),
     ])
-    const map={}; (p||[]).forEach(x=>map[x.id]=x)
-    setMods(map); setVacations(v||[])
+    const testIds=new Set((p||[]).filter(isTestAccount).map(x=>x.id))
+    const map={}; (p||[]).filter(x=>!isTestAccount(x)).forEach(x=>map[x.id]=x)
+    setMods(map); setVacations((v||[]).filter(x=>!testIds.has(x.user_id)))
   }
 
   const daysInMonth=new Date(year,month+1,0).getDate()
@@ -4291,12 +4438,14 @@ function PageVacationCalendar() {
     <div style={sa.content}>
       <div style={sa.pageHead}>
         <h1 style={sa.pageTitle}>Vacation Calendar</h1>
-        <div style={{display:'flex', gap:8, alignItems:'center'}}>
+        <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+          <button style={sa.btnPrimary} onClick={()=>setShowAdd(v=>!v)}>{showAdd?'Close':'+ Add vacation'}</button>
           <button style={sa.filterBtn} onClick={()=>{const d=new Date(year,month-1,1);setMonth(d.getMonth());setYear(d.getFullYear())}}>← Prev</button>
           <span style={{fontSize:'0.9rem', fontWeight:600, color:'#f1f5f9', minWidth:140, textAlign:'center'}}>{MONTHS[month]} {year}</span>
           <button style={sa.filterBtn} onClick={()=>{const d=new Date(year,month+1,1);setMonth(d.getMonth());setYear(d.getFullYear())}}>Next →</button>
         </div>
       </div>
+      {showAdd && <AddVacationPanel mods={Object.values(mods).sort((a,b)=>(a.name||'').localeCompare(b.name||''))} onDone={()=>{ setShowAdd(false); load() }} onCancel={()=>setShowAdd(false)}/>}
       {vacations.length===0?<div style={sa.card}><p style={sa.empty}>No approved vacations this month.</p></div>:(
         <div style={sa.card}>
           <div style={{overflowX:'auto'}}>
@@ -4307,6 +4456,7 @@ function PageVacationCalendar() {
                   const date=new Date(year,month,d), isToday=new Date().toDateString()===date.toDateString(), isWeekend=date.getDay()===0||date.getDay()===6
                   return <th key={d} style={{...sa.th, textAlign:'center', minWidth:28, padding:'0 1px 10px', color:isToday?'#60a5fa':isWeekend?'#4a5568':'#64748b', fontSize:'0.65rem'}}>{d}</th>
                 })}
+                <th style={sa.th}></th>
               </tr></thead>
               <tbody>
                 {vacations.map(vac=>{
@@ -4324,6 +4474,10 @@ function PageVacationCalendar() {
                           {isOnVac(vac,d)&&<div style={{width:'100%', height:8, background:'#34d39966', borderRadius:2}}/>}
                         </td>
                       ))}
+                      <td style={{padding:'4px 6px', borderBottom:'1px solid #0f1117', whiteSpace:'nowrap'}}>
+                        <span style={{fontSize:'0.7rem', color:'#64748b', marginRight:8}}>{vac.days_requested}d</span>
+                        <button style={sa.btnSmRed} onClick={()=>removeVacation(vac)} title="Delete this vacation and give the days back">Delete</button>
+                      </td>
                     </tr>
                   )
                 })}
@@ -5163,6 +5317,225 @@ function Layout({ profile, page, setPage, onLogout, children }) {
 }
 
 
+
+// ==================== LUNCH REMINDER ====================
+const LUNCH_LIMIT_MIN = 30   // same limit used by the attendance report
+const LUNCH_WARN_MIN  = 25   // first heads-up, 5 minutes before the limit
+
+let _audioCtx = null
+// Must be called from a click handler so the browser allows sound later.
+function unlockLunchAlerts() {
+  try {
+    if (typeof window === 'undefined') return
+    const AC = window.AudioContext || window.webkitAudioContext
+    if (AC) {
+      if (!_audioCtx) _audioCtx = new AC()
+      if (_audioCtx.state === 'suspended') _audioCtx.resume()
+    }
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  } catch (e) {}
+}
+// kind 'warn'  -> soft double beep (5 minutes left)
+// kind 'alarm' -> loud two-tone alarm (lunch is over)
+function playBeep(kind = 'warn') {
+  try {
+    unlockLunchAlerts()
+    if (!_audioCtx) return
+    if (_audioCtx.state === 'suspended') _audioCtx.resume()
+    if (kind === 'alarm') {
+      for (let i = 0; i < 8; i++) {
+        const t0 = _audioCtx.currentTime + i * 0.22
+        const osc = _audioCtx.createOscillator()
+        const gain = _audioCtx.createGain()
+        osc.type = 'square'
+        osc.frequency.value = i % 2 === 0 ? 1175 : 880
+        gain.gain.setValueAtTime(0.0001, t0)
+        gain.gain.exponentialRampToValueAtTime(0.7, t0 + 0.01)
+        gain.gain.setValueAtTime(0.7, t0 + 0.16)
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2)
+        osc.connect(gain); gain.connect(_audioCtx.destination)
+        osc.start(t0); osc.stop(t0 + 0.22)
+      }
+    } else {
+      for (let i = 0; i < 2; i++) {
+        const t0 = _audioCtx.currentTime + i * 0.35
+        const osc = _audioCtx.createOscillator()
+        const gain = _audioCtx.createGain()
+        osc.type = 'sine'; osc.frequency.value = 880
+        gain.gain.setValueAtTime(0.0001, t0)
+        gain.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02)
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.25)
+        osc.connect(gain); gain.connect(_audioCtx.destination)
+        osc.start(t0); osc.stop(t0 + 0.3)
+      }
+    }
+  } catch (e) {}
+}
+function lunchMinutesSince(from) {
+  if (!from) return 0
+  return Math.max(0, Math.floor((Date.now() - new Date(from)) / 60000))
+}
+
+// Banner + sound + browser notification + flashing tab title while a mod is
+// on lunch. Lives at the app root, so it works on every tab of the dashboard.
+function LunchReminder({ attendance, onEndLunch }) {
+  const onLunch = !!attendance && !attendance.clock_out && !!attendance.lunch_start && !attendance.lunch_end
+  const [mins, setMins] = useState(0)
+  const [soundOn, setSoundOn] = useState(false)
+  const lastMilestone = useRef(-1)
+
+  // Browsers only allow sound after the user interacted with the page, so
+  // unlock audio on the first click/key anywhere (covers page reloads mid-lunch).
+  useEffect(() => {
+    function unlock() { unlockLunchAlerts(); setSoundOn(!!_audioCtx && _audioCtx.state === 'running') }
+    window.addEventListener('pointerdown', unlock)
+    window.addEventListener('keydown', unlock)
+    return () => { window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock) }
+  }, [])
+
+  useEffect(() => {
+    if (!onLunch) { lastMilestone.current = -1; setMins(0); return }
+    function fire(m) {
+      playBeep(m >= LUNCH_LIMIT_MIN ? 'alarm' : 'warn')
+      try {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          const over = m >= LUNCH_LIMIT_MIN
+          new Notification(over ? '🍽 Your lunch is over' : '🍽 Lunch ends soon', {
+            body: over ? `You have been on lunch for ${m} min. Please end your lunch.` : `${LUNCH_LIMIT_MIN - m} min left on your lunch.`,
+            tag: 'lunch-reminder',
+            requireInteraction: over,
+          })
+        }
+      } catch (e) {}
+    }
+    function tick() {
+      const m = lunchMinutesSince(attendance.lunch_start)
+      setMins(m)
+      setSoundOn(!!_audioCtx && _audioCtx.state === 'running')
+      let milestone = null
+      if (m >= LUNCH_LIMIT_MIN) milestone = LUNCH_LIMIT_MIN + Math.floor((m - LUNCH_LIMIT_MIN) / 5) * 5 // 30, 35, 40…
+      else if (m >= LUNCH_WARN_MIN) milestone = LUNCH_WARN_MIN
+      if (milestone !== null && milestone !== lastMilestone.current) {
+        lastMilestone.current = milestone
+        fire(m)
+      }
+    }
+    tick()
+    const id = setInterval(tick, 10000)
+    return () => clearInterval(id)
+  }, [onLunch, attendance?.lunch_start])
+
+  const over = onLunch && mins >= LUNCH_LIMIT_MIN
+
+  // Flash the tab title so it is noticed from another tab/window
+  useEffect(() => {
+    if (!over || typeof document === 'undefined') return
+    const original = document.title
+    let on = false
+    const id = setInterval(() => { on = !on; document.title = on ? '🍽 LUNCH IS OVER!' : original }, 1000)
+    return () => { clearInterval(id); document.title = original }
+  }, [over])
+
+  if (!onLunch || mins < LUNCH_WARN_MIN) return null
+  const color = over ? '#f87171' : '#f59e0b'
+  return (
+    <div style={{position:'fixed', top:0, left:0, right:0, zIndex:500, background: over?'#7f1d1d':'#78350f', borderBottom:`2px solid ${color}`, color:'#fff', padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'center', gap:16, flexWrap:'wrap', fontSize:'0.88rem', fontWeight:600}}>
+      <span>{over ? `🍽 Your lunch is over — ${mins} min / ${LUNCH_LIMIT_MIN} min. Please end your lunch.` : `🍽 Lunch ends in ${LUNCH_LIMIT_MIN - mins} min (${mins} / ${LUNCH_LIMIT_MIN} min).`}</span>
+      {!soundOn && <span style={{fontSize:'0.75rem', fontWeight:500, opacity:0.9}}>🔇 Click anywhere on the page to enable the alert sound</span>}
+      <button onClick={()=>{ unlockLunchAlerts(); playBeep(over ? 'alarm' : 'warn'); setSoundOn(true) }} style={{background:'transparent', color:'#fff', border:'1px solid rgba(255,255,255,0.5)', padding:'6px 12px', borderRadius:8, fontWeight:600, cursor:'pointer', fontSize:'0.78rem'}}>🔔 Test sound</button>
+      <button onClick={onEndLunch} style={{background:'#fff', color: over?'#7f1d1d':'#78350f', border:'none', padding:'6px 14px', borderRadius:8, fontWeight:700, cursor:'pointer', fontSize:'0.8rem'}}>End Lunch</button>
+    </div>
+  )
+}
+
+// ==================== SHIFT END REMINDER ====================
+const SHIFT_END_HOUR = { 'Night Shift':9, 'Morning Shift':17, 'Afternoon Shift':24 } // wall-clock hours, UTC+1 (same as the shift labels)
+const SHIFT_WARN_MIN = 10   // soft heads-up this many minutes before the shift ends
+
+// When does the shift that started at `clockIn` end? Shift hours are defined in
+// UTC+1, so this does not depend on the timezone of the mod's computer.
+function shiftEndFor(clockIn, shift) {
+  const endHour = SHIFT_END_HOUR[shift]
+  if (endHour === undefined) return null
+  const start = new Date(clockIn)
+  const wall = new Date(start.getTime() + 3600000) // shift the clock to UTC+1 wall time
+  let end = new Date(Date.UTC(wall.getUTCFullYear(), wall.getUTCMonth(), wall.getUTCDate(), endHour, 0, 0) - 3600000)
+  if (end <= start) end = new Date(end.getTime() + 86400000)
+  return end
+}
+// Lunch can only be started from LUNCH_EDGE_MIN minutes after the shift starts
+// until LUNCH_EDGE_MIN minutes before it ends. Returns an error message, or null if allowed.
+const LUNCH_EDGE_MIN = 60
+function lunchWindowError(clockIn, shift) {
+  if (!clockIn) return null
+  const t = n => n.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })
+  const now = new Date()
+  const opens = new Date(new Date(clockIn).getTime() + LUNCH_EDGE_MIN * 60000)
+  if (now < opens) return `Lunch is only allowed from 1 hour after your shift starts. You can start lunch from ${t(opens)}.`
+  const end = shiftEndFor(clockIn, shift)
+  if (end) {
+    const closes = new Date(end.getTime() - LUNCH_EDGE_MIN * 60000)
+    if (now > closes) return `Lunch is not allowed in the last hour of your shift (it closed at ${t(closes)}).`
+  }
+  return null
+}
+function fmtMinutes(m) { const h = Math.floor(m / 60), r = m % 60; return h > 0 ? `${h}h ${r}m` : `${r}m` }
+
+// Bottom banner + sound + browser notification reminding a mod to clock out.
+function ShiftEndReminder({ attendance, shift, hidden, onClockOut }) {
+  const active = !!attendance && !attendance.clock_out && !!shift
+  const [info, setInfo] = useState(null)
+  const lastMilestone = useRef(null)
+
+  useEffect(() => {
+    if (!active) { lastMilestone.current = null; setInfo(null); return }
+    const end = shiftEndFor(attendance.clock_in, shift)
+    if (!end) { setInfo(null); return }
+    function fire(over, left, overMins) {
+      playBeep(over ? 'alarm' : 'warn')
+      try {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification(over ? '⏰ Your shift has ended' : '⏰ Your shift ends soon', {
+            body: over ? `Your shift ended${overMins > 0 ? ' ' + fmtMinutes(overMins) + ' ago' : ''}. Please clock out.` : `${left} min left. Remember to clock out.`,
+            tag: 'shift-end-reminder',
+            requireInteraction: over,
+          })
+        }
+      } catch (e) {}
+    }
+    function tick() {
+      const diff = end - Date.now()
+      const over = diff <= 0
+      const left = Math.ceil(diff / 60000)
+      const overMins = over ? Math.floor(-diff / 60000) : 0
+      setInfo({ over, left, overMins })
+      let milestone = null
+      if (over) milestone = 'over-' + Math.floor(overMins / 5)   // at the end, then every 5 min
+      else if (left <= SHIFT_WARN_MIN) milestone = 'warn'
+      if (milestone !== null && milestone !== lastMilestone.current) {
+        lastMilestone.current = milestone
+        fire(over, left, overMins)
+      }
+    }
+    tick()
+    const id = setInterval(tick, 10000)
+    return () => clearInterval(id)
+  }, [active, attendance?.clock_in, shift])
+
+  if (!active || hidden || !info) return null
+  if (!info.over && info.left > SHIFT_WARN_MIN) return null
+  const over = info.over
+  const color = over ? '#f87171' : '#f59e0b'
+  return (
+    <div style={{position:'fixed', bottom:0, left:0, right:0, zIndex:400, background: over?'#7f1d1d':'#78350f', borderTop:`2px solid ${color}`, color:'#fff', padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'center', gap:16, flexWrap:'wrap', fontSize:'0.88rem', fontWeight:600}}>
+      <span>{over ? `⏰ Your shift has ended${info.overMins > 0 ? ' ' + fmtMinutes(info.overMins) + ' ago' : ''}. Please clock out.` : `⏰ Your shift ends in ${info.left} min. Remember to clock out.`}</span>
+      <button onClick={onClockOut} style={{background:'#fff', color: over?'#7f1d1d':'#78350f', border:'none', padding:'6px 14px', borderRadius:8, fontWeight:700, cursor:'pointer', fontSize:'0.8rem'}}>Clock Out</button>
+    </div>
+  )
+}
+
 // ==================== ROOT APP ====================
 
 export default function App() {
@@ -5258,6 +5631,11 @@ export default function App() {
 
   async function handleAction(action) {
     if (action === 'clock_out') { setShowReportPopup(true); return }
+    if (action === 'lunch_start') {
+      const msg = lunchWindowError(attendance?.clock_in, profile?.shift)
+      if (msg) { setError(msg); return }
+    }
+    if (action === 'lunch_start' || action === 'clock_in') unlockLunchAlerts()
     await doAction(action)
   }
 
@@ -5301,6 +5679,8 @@ export default function App() {
           onSubmit={handleReportDone}
         />
       )}
+      {!isAdmin && <LunchReminder attendance={attendance} onEndLunch={()=>handleAction('lunch_end')}/>}
+      {!isAdmin && <ShiftEndReminder attendance={attendance} shift={profile?.shift} hidden={showReportPopup} onClockOut={()=>handleAction('clock_out')}/>}
       <Layout profile={profile} page={page} setPage={setPage} onLogout={handleLogout}>
         {!isAdmin && (
           <>

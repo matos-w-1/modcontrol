@@ -9,12 +9,15 @@ export default async function handler(req, res) {
   const { action } = req.query
 
  if (req.method === 'GET' && action === 'approvals') {
-  const [{ data: v }, { data: sw }, { data: profs }, { data: allSw }] = await Promise.all([
+  const cutoff = new Date(Date.now()-30*86400000).toISOString().split('T')[0]
+  const [{ data: v }, { data: sw }, { data: profs }, { data: allSw }, { data: approvedVacs }] = await Promise.all([
     supabase.from('vacation_requests').select('id,user_id,start_date,end_date,days_requested,status,admin_notes,submitted_at,validation_warnings').eq('status','pending').order('submitted_at'),
     supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date,status,notes').eq('status','pending_admin'),
     supabase.from('profiles').select('id,name,vacation_used,vacation_pending,vacation_allowance,shift'),
-supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date,status,notes,created_at').order('created_at',{ascending:false}).limit(50),  ])
-  return res.status(200).json({ vacations: v||[], swaps: sw||[], profiles: profs||[], allSwaps: allSw||[] })
+supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date,status,notes,created_at').order('created_at',{ascending:false}).limit(50),
+    supabase.from('vacation_requests').select('id,user_id,start_date,end_date,status').eq('status','approved').gte('end_date',cutoff),
+  ])
+  return res.status(200).json({ vacations: v||[], swaps: sw||[], profiles: profs||[], allSwaps: allSw||[], approvedVacations: approvedVacs||[] })
 }
 
   if (req.method === 'POST' && action === 'decide_vacation') {
@@ -78,4 +81,4 @@ supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date,status,
 }
 
   return res.status(400).json({ error: 'Unknown action' })
-}
+}
