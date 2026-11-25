@@ -1855,7 +1855,7 @@ function PageCalendar() {
       const bd = new Date(b.birthday)
       return bd.getMonth()===date.getMonth() && bd.getDate()===date.getDate()
     })
-    if (isBirthday)                  return { label:'🎂', color:'#f59e0b', bg:'#f59e0b18' }
+    if (isBirthday)                  return { label:'🎂', color:'#f472b6', bg:'#f472b618' }
     if (isOnVacation(mod.id, date))  return { label:'VAC', color:'#34d399', bg:'#34d39918' }
     if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#facc15', bg:'#facc1518' }
     if (isOff(mod, date))            return { label:'OFF', color:'#f87171', bg:'#f8717118' }
@@ -1866,7 +1866,7 @@ function PageCalendar() {
     if (override) {
       const color = SHIFT_COLOR[override.shift] || '#94a3b8'
       const label = override.start_time && override.end_time
-        ? `${override.start_time}-${override.end_time}`
+        ? `${String(override.start_time).slice(0,2)}-${String(override.end_time).slice(0,2)}`
         : override.shift?.split(' ')[0]||'—'
       return { label, color, bg: color+'15' }
     }
@@ -1921,12 +1921,10 @@ function ShiftCalendar({ title, accent, rows }) {
                   const isWeekend = d.getDay()===0||d.getDay()===6
                   const isWorking = cell.label!=='OFF'&&cell.label!=='VAC'&&cell.label!=='SWAP'&&cell.label!=='🎂'&&!cell.label?.includes('-')
                   return (
-                    <td key={i} style={{padding:'6px 2px', textAlign:'center', borderBottom:'1px solid #0f1117', background:isToday?'#1e2433':isWeekend?'#0d1018':'transparent'}}>
+                    <td key={i} title={`${mod.name} · ${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})} · ${isWorking?'Working':cell.label}`} style={{padding:'6px 1px', textAlign:'center', borderBottom:'1px solid #0f1117', borderLeft:d.getDay()===1?'1px solid #1e2433':'none', background:isToday?'#1e2a44':isWeekend?'#0d1018':'transparent'}}>
                       {isWorking
-                        ? <div style={{width:8, height:8, borderRadius:'50%', background:cell.color, margin:'0 auto', opacity:0.75}}/>
-                        : <div style={{fontSize:'0.58rem', fontWeight:700, color:cell.color, background:cell.color+'18', padding:'3px 3px', borderRadius:5, textTransform:'uppercase', border:`1px solid ${cell.color}33`}}>
-                            {cell.label}
-                          </div>
+                        ? <div style={{width:5, height:5, borderRadius:'50%', background:'#334155', margin:'0 auto'}}/>
+                        : <div style={{fontSize:'0.56rem', fontWeight:700, color:cell.color, background:cell.color+'2e', padding:'3px 0', borderRadius:4, textTransform:'uppercase'}}>{cell.label}</div>
                       }
                     </td>
                   )
@@ -1953,12 +1951,7 @@ function ShiftCalendar({ title, accent, rows }) {
         </div>
       </div>
       <div style={{display:'flex', gap:16, flexWrap:'wrap', marginBottom:24}}>
-        {Object.entries(SHIFT_COLOR).map(([shift,color])=>(
-  <div key={shift} style={{display:'flex',alignItems:'center',gap:6}}>
-    <div style={{width:10,height:10,borderRadius:2,background:color}}/>
-    <span style={{fontSize:'0.72rem',color:'#94a3b8'}}>{shift}</span>
-  </div>
-))}
+        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:5,height:5,borderRadius:'50%',background:'#334155'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Working</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#f87171'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Day Off</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#34d399'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Vacation</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#facc15'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
@@ -3951,7 +3944,7 @@ function AdminPageCalendar() {
       const bd = new Date(b.birthday)
       return bd.getMonth()===date.getMonth() && bd.getDate()===date.getDate()
     })
-    if (isBirthday)                  return { label:'🎂', color:'#f59e0b', bg:'#f59e0b18' }
+    if (isBirthday)                  return { label:'🎂', color:'#f472b6', bg:'#f472b618' }
     if (isOnVacation(mod.id, date))  return { label:'VAC', color:'#34d399', bg:'#34d39918' }
     if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#facc15', bg:'#facc1518' }
     if (isOff(mod, date))            return { label:'OFF', color:'#f87171', bg:'#f8717118' }
@@ -3960,7 +3953,7 @@ function AdminPageCalendar() {
     if (override) {
       const color = SHIFT_COLOR[override.shift] || '#94a3b8'
       const label = override.start_time && override.end_time
-        ? `${override.start_time}-${override.end_time}`
+        ? `${String(override.start_time).slice(0,2)}-${String(override.end_time).slice(0,2)}`
         : override.shift?.split(' ')[0]||'—'
       return { label, color, bg: color+'15' }
     }
@@ -4011,12 +4004,12 @@ function AdminPageCalendar() {
                     const isWeekend = d.getDay()===0||d.getDay()===6
                     const isWorking = cell.label!=='OFF'&&cell.label!=='VAC'&&cell.label!=='SWAP'&&cell.label!=='🎂'&&!cell.label?.includes('-')
                     return (
-                      <td key={i} style={{padding:'6px 2px', textAlign:'center', borderBottom:'1px solid #0f1117', background:isToday?'#1e2433':isWeekend?'#0d1018':'transparent'}}>
-                        {isWorking
-                          ? <div style={{width:8, height:8, borderRadius:'50%', background:cell.color, margin:'0 auto', opacity:0.75}}/>
-                          : <div style={{fontSize:'0.58rem', fontWeight:700, color:cell.color, background:cell.color+'18', padding:'3px 3px', borderRadius:5, textTransform:'uppercase', border:`1px solid ${cell.color}33`}}>{cell.label}</div>
-                        }
-                      </td>
+                      <td key={i} title={`${mod.name} · ${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})} · ${isWorking?'Working':cell.label}`} style={{padding:'6px 1px', textAlign:'center', borderBottom:'1px solid #0f1117', borderLeft:d.getDay()===1?'1px solid #1e2433':'none', background:isToday?'#1e2a44':isWeekend?'#0d1018':'transparent'}}>
+                      {isWorking
+                        ? <div style={{width:5, height:5, borderRadius:'50%', background:'#334155', margin:'0 auto'}}/>
+                        : <div style={{fontSize:'0.56rem', fontWeight:700, color:cell.color, background:cell.color+'2e', padding:'3px 0', borderRadius:4, textTransform:'uppercase'}}>{cell.label}</div>
+                      }
+                    </td>
                     )
                   })}
                 </tr>
@@ -4041,12 +4034,7 @@ function AdminPageCalendar() {
         </div>
       </div>
       <div style={{display:'flex', gap:16, flexWrap:'wrap', marginBottom:24}}>
-        {Object.entries(SHIFT_COLOR).map(([shift,color])=>(
-          <div key={shift} style={{display:'flex',alignItems:'center',gap:6}}>
-            <div style={{width:10,height:10,borderRadius:2,background:color}}/>
-            <span style={{fontSize:'0.72rem',color:'#94a3b8'}}>{shift}</span>
-          </div>
-        ))}
+        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:5,height:5,borderRadius:'50%',background:'#334155'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Working</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#f87171'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Day Off</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#34d399'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Vacation</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#facc15'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
