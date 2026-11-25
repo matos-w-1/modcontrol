@@ -540,7 +540,7 @@ async function loadOnDuty() {
     const [{ data:m },{ data:v },{ data:sw }] = await Promise.all([
       supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt,mod_group').eq('role','mod').neq('status','left').order('shift,name'),
       supabase.from('vacation_requests').select('id,user_id,start_date,end_date').eq('status','approved').lte('start_date',in7).gte('end_date',today),
-      supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date').eq('status','approved').gte('swap_date',today).lte('swap_date',in7),
+      supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date,target_date').eq('status','approved').or(`and(swap_date.gte.${today},swap_date.lte.${in7}),and(target_date.gte.${today},target_date.lte.${in7})`),
     ])
     setCalMods((m||[]).filter(x=>!isTestAccount(x))); setCalVacs(v||[]); setCalSwaps(sw||[])
   }
@@ -599,7 +599,7 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
     let daysOff = mod.days_off||[]
     if (mod.rotating_days_off) daysOff = isEvenMonth ? (mod.days_off||[]) : (mod.rotating_days_off_alt||[])
     if (calVacs.some(v=>v.user_id===mod.id&&d>=v.start_date&&d<=v.end_date)) return { label:'VAC', color:'#34d399' }
-    if (calSwaps.some(sw=>sw.swap_date===d&&(sw.requester_id===mod.id||sw.target_id===mod.id))) return { label:'SWAP', color:'#facc15' }
+    if (calSwaps.some(sw=>(sw.swap_date===d||sw.target_date===d)&&(sw.requester_id===mod.id||sw.target_id===mod.id))) return { label:'SWAP', color:'#facc15' }
     if (daysOff.includes(dayName)) return { label:'OFF', color:'#f87171' }
     const color = SHIFT_COLOR[mod.shift]||'#94a3b8'
     return { label:'●', color }
@@ -1205,7 +1205,7 @@ function SwapCalendarPicker({ userId, form, setForm }) {
   return (
     <div>
       <div style={{fontSize:'0.75rem', color:'#64748b', marginBottom:10}}>
-        Clica num dia <strong style={{color:'#f1f5f9'}}>teu</strong> para o dares, depois clica num dia de um <strong style={{color:'#f1f5f9'}}>colega</strong> para o pedires.
+        Click one of <strong style={{color:'#f1f5f9'}}>your</strong> working days to give it away, then click a working day of a <strong style={{color:'#f1f5f9'}}>colleague</strong> to take it.
       </div>
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
         <button style={s.filterBtn} onClick={()=>setCurrentDate(new Date(year,month-1,1))}>← Prev</button>
@@ -1255,9 +1255,9 @@ function SwapCalendarPicker({ userId, form, setForm }) {
       )}
       {(form.my_date || form.their_date) && (
         <div style={{fontSize:'0.8rem', color:'#94a3b8', marginBottom:4}}>
-          {form.my_date && <>A dar: <strong style={{color:'#f1f5f9'}}>{fmtDate(form.my_date)}</strong></>}
+          {form.my_date && <>You give: <strong style={{color:'#f1f5f9'}}>{fmtDate(form.my_date)}</strong></>}
           {form.my_date && form.their_date && ' · '}
-          {form.their_date && <>A pedir: <strong style={{color:'#f1f5f9'}}>{fmtDate(form.their_date)}</strong>{targetName?` de ${targetName}`:''}</>}
+          {form.their_date && <>You take: <strong style={{color:'#f1f5f9'}}>{fmtDate(form.their_date)}</strong>{targetName?` from ${targetName}`:''}</>}
         </div>
       )}
     </div>
@@ -1284,8 +1284,21 @@ function PageSwaps({ userId, profile }) {
   }
 
   async function submitSwap() {
+    setFormError(null)
     if(!form.target_id||!form.my_date||!form.their_date){setFormError('Please select both a day to give and a day to request.');return}
+    if(form.my_date===form.their_date){setFormError('The two days must be different.');return}
+    const todayIso = toLocalISO(new Date())
+    if(form.my_date<todayIso||form.their_date<todayIso){setFormError('You cannot swap days that are in the past.');return}
     setSaving(true)
+    // Block the request if either person already has a pending/approved swap on one of these days
+    const ids=`(${userId},${form.target_id})`
+    const dates=`(${form.my_date},${form.their_date})`
+    const { data: clash } = await supabase.from('shift_swaps').select('id')
+      .in('status',['pending','pending_admin','approved'])
+      .or(`requester_id.in.${ids},target_id.in.${ids}`)
+      .or(`swap_date.in.${dates},target_date.in.${dates}`)
+      .limit(1)
+    if (clash && clash.length > 0) { setFormError('One of you already has a swap on one of these days. Pick other days or wait for that request to be resolved.'); setSaving(false); return }
     const target=mods.find(m=>m.id===form.target_id)
     const {error}=await supabase.from('shift_swaps').insert({
       requester_id:userId, target_id:form.target_id,
@@ -1816,7 +1829,7 @@ function PageCalendar() {
   const [{ data:m },{ data:v },{ data:sw },{ data:bd },{ data:ov }] = await Promise.all([
     supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt,mod_group,birthday').eq('role','mod').neq('status','left').order('name'),
     supabase.from('vacation_requests').select('id,user_id,start_date,end_date').eq('status','approved').lte('start_date',lastDay).gte('end_date',firstDay),
-    supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date').eq('status','approved').gte('swap_date',firstDay).lte('swap_date',lastDay),
+    supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date,target_date').eq('status','approved').or(`and(swap_date.gte.${firstDay},swap_date.lte.${lastDay}),and(target_date.gte.${firstDay},target_date.lte.${lastDay})`),
     supabase.from('profiles').select('id,birthday').eq('role','mod').not('birthday','is',null),
     supabase.from('shift_overrides').select('*'),
   ])
@@ -1849,7 +1862,7 @@ function PageCalendar() {
 
   function hasSwap(modId, date) {
     const d = toLocalISO(date)
-    return swaps.some(sw => sw.swap_date===d && (sw.requester_id===modId||sw.target_id===modId))
+    return swaps.some(sw => (sw.swap_date===d||sw.target_date===d) && (sw.requester_id===modId||sw.target_id===modId))
   }
 
   function getCell(mod, date) {
@@ -2867,7 +2880,7 @@ function PageApprovals({ onCountChange }) {
                 <div style={sa.approvalTop}>
                   <div>
                     <div style={sa.approvalName}>{requester?.name} ↔ {target?.name}</div>
-                    <div style={sa.approvalMeta}>{requester?.shift} ↔ {target?.shift} · {fmtDate(r.swap_date)}</div>
+                    <div style={sa.approvalMeta}>{requester?.shift} ↔ {target?.shift} · {requester?.name} gives {fmtDate(r.swap_date)}, {target?.name} gives {fmtDate(r.target_date)}</div>
                     {r.notes && <div style={{fontSize:'0.78rem', color:'#94a3b8', marginTop:4}}>{r.notes}</div>}
                   </div>
                   <div style={{display:'flex', alignItems:'center', gap:8}}>
@@ -2909,7 +2922,7 @@ function PageApprovals({ onCountChange }) {
                 <div style={sa.approvalTop}>
                   <div>
                     <div style={sa.approvalName}>{requester?.name} ↔ {target?.name}</div>
-                    <div style={sa.approvalMeta}>{requester?.shift} ↔ {target?.shift} · {fmtDate(r.swap_date)}</div>
+                    <div style={sa.approvalMeta}>{requester?.shift} ↔ {target?.shift} · {requester?.name} gives {fmtDate(r.swap_date)}, {target?.name} gives {fmtDate(r.target_date)}</div>
                   </div>
                   <span style={{...sa.pill, background:(statusCol[r.status]||'#94a3b8')+'22', color:statusCol[r.status]||'#94a3b8'}}>{r.status}</span>
                 </div>
@@ -3739,7 +3752,7 @@ function AdminPageCalendar() {
   const [{ data:m },{ data:v },{ data:sw },{ data:bd },{ data:ov }] = await Promise.all([
     supabase.from('profiles').select('id,name,shift,days_off,rotating_days_off,rotating_days_off_alt,mod_group,birthday').eq('role','mod').neq('status','left').order('name'),
     supabase.from('vacation_requests').select('id,user_id,start_date,end_date').eq('status','approved').lte('start_date',lastDay).gte('end_date',firstDay),
-    supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date').eq('status','approved').gte('swap_date',firstDay).lte('swap_date',lastDay),
+    supabase.from('shift_swaps').select('id,requester_id,target_id,swap_date,target_date').eq('status','approved').or(`and(swap_date.gte.${firstDay},swap_date.lte.${lastDay}),and(target_date.gte.${firstDay},target_date.lte.${lastDay})`),
     supabase.from('profiles').select('id,birthday').eq('role','mod').not('birthday','is',null),
     supabase.from('shift_overrides').select('*'),
   ])
@@ -3772,7 +3785,7 @@ function AdminPageCalendar() {
 
   function hasSwap(modId, date) {
     const d = toLocalISO(date)
-    return swaps.some(sw => sw.swap_date===d && (sw.requester_id===modId||sw.target_id===modId))
+    return swaps.some(sw => (sw.swap_date===d||sw.target_date===d) && (sw.requester_id===modId||sw.target_id===modId))
   }
 
   function getCell(mod, date) {
@@ -4082,7 +4095,7 @@ function PageSwapManager({ adminId }) {
     ])
     const map={}; (p||[]).forEach(x=>map[x.id]=x.name)
     setMods(map); setDebts(db||[])
-    setSwaps(filter==='all'?sw||[]:(sw||[]).filter(s=>sa.status===filter))
+    setSwaps(filter==='all'?sw||[]:(sw||[]).filter(x=>x.status===filter))
     setLoading(false)
   }
 
@@ -4877,14 +4890,14 @@ function Layout({ profile, page, setPage, onLogout, children }) {
   const readIds = JSON.parse(localStorage.getItem('readNotifIds') || '[]')
 
   const [{ data:swaps }, { data:vacs }, { data:bdays }, { data:modAlerts }] = await Promise.all([
-  supabase.from('shift_swaps').select('id,requester_id,swap_date,requester:profiles!requester_id(name)').eq('target_id', profile.id).eq('status','pending'),
+  supabase.from('shift_swaps').select('id,requester_id,swap_date,target_date,requester:profiles!requester_id(name)').eq('target_id', profile.id).eq('status','pending'),
   supabase.from('vacation_requests').select('id,start_date,end_date,status,reviewed_at').eq('user_id', profile.id).in('status',['approved','declined']).gte('reviewed_at', new Date(Date.now()-7*86400000).toISOString()),
   supabase.from('profiles').select('id,name,birthday').eq('role','mod').neq('status','left').not('birthday','is',null),
   supabase.from('mod_alerts').select('*').eq('user_id', profile.id).eq('read', false),
 ])
   const notifs = []
   ;(swaps||[]).forEach(sw => {
-    notifs.push({ id:`swap-${sw.id}`, type:'swap', icon:'🔄', title:`${sw.requester?.name} wants to swap`, body:`Swap date: ${fmtDate(sw.swap_date)}`, color:'#60a5fa', action:()=>{ setPage('swaps'); setShowInbox(false) } })
+    notifs.push({ id:`swap-${sw.id}`, type:'swap', icon:'🔄', title:`${sw.requester?.name} wants to swap`, body:`They give ${fmtDate(sw.swap_date)}, you give ${fmtDate(sw.target_date)}`, color:'#60a5fa', action:()=>{ setPage('swaps'); setShowInbox(false) } })
   })
   ;(vacs||[]).forEach(v => {
     const isApproved = v.status==='approved'
