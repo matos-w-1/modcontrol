@@ -37,7 +37,7 @@ import { LunchReminder } from '../components/shared/LunchReminder'
 import { ShiftEndReminder } from '../components/shared/ShiftEndReminder'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { filterAdminNav, hasPermission } from '../lib/permissions'
+import { filterAdminNav, filterModNav, hasPermission } from '../lib/permissions'
 
 export default function App() {
   const [session, setSession]               = useState(null)
@@ -46,6 +46,7 @@ export default function App() {
   const [page, setPage]                     = useState('home')
   const [adminTab, setAdminTab]               = useState(null)   // active tab inside an admin menu entry
   const goPage = (id) => { setAdminTab(null); setPage(id) }
+  const [navReady, setNavReady]               = useState(false)   // true once the saved page has been restored
   const [loading, setLoading]               = useState(true)
   const [busy, setBusy]                     = useState(false)
   const [error, setError]                   = useState(null)
@@ -75,16 +76,30 @@ export default function App() {
     return () => clearInterval(interval)
   }, [profile?.id])
 
+  // Remember the current page, so a refresh (F5) stays where you were instead of going back to the start page.
+  useEffect(() => {
+    if (!navReady) return
+    try { sessionStorage.setItem('rt_nav', JSON.stringify({ page, tab: adminTab })) } catch (e) {}
+  }, [page, adminTab, navReady])
+
   useEffect(() => {
     if (!session?.user?.id || !profile) return
+    let saved = {}
+    try { saved = JSON.parse(sessionStorage.getItem('rt_nav') || '{}') || {} } catch (e) {}
     if (profile.role === 'mod') {
       loadAttendance(session.user.id)
-      setPage('home')
+      const valid = ['home', 'profile', ...filterModNav(profile).flatMap(g => g.items.map(i => i.id))]
+      setPage(valid.includes(saved.page) ? saved.page : 'home')
     } else if (profile.role === 'admin') {
       fetchAdminOverview()
-      const firstAllowed = filterAdminNav(profile)?.[0]?.items?.[0]?.id
-      setPage(hasPermission(profile,'dashboard') ? 'dashboard' : (firstAllowed || 'dashboard'))
+      const entries = filterAdminNav(profile).flatMap(g => g.items)
+      const firstAllowed = entries[0]?.id
+      const entry = entries.find(e => e.id === saved.page)
+      if (saved.page === 'adminprofile') setPage('adminprofile')
+      else if (entry) { setPage(entry.id); setAdminTab(entry.tabs.some(t => t.id === saved.tab) ? saved.tab : null) }
+      else setPage(hasPermission(profile,'dashboard') ? 'dashboard' : (firstAllowed || 'dashboard'))
     }
+    setNavReady(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id])
 
