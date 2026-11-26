@@ -33,6 +33,10 @@ const TEST_ACCOUNT_NAMES = ['test', 'test account']
 const SHIFT_COLORS = { 'Morning Shift':'#3b82f6', 'Afternoon Shift':'#ef4444', 'Night Shift':'#22c55e' }
 const SWAP_COLOR = '#cbd5e1'
 function isTestAccount(p) { return TEST_ACCOUNT_NAMES.includes((p?.name || '').trim().toLowerCase()) }
+// Tells the admins' Telegram chat that something new needs them. Fire-and-forget: it never blocks or breaks the page.
+function notifyAdmins(event, id) {
+  try { fetch('/api/telegram', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event, id }) }).catch(()=>{}) } catch(e) {}
+}
 function fmtTime(iso) { if (!iso) return '—'; return new Date(iso).toLocaleTimeString('en-US',{ hour:'numeric', minute:'2-digit', hour12:true }) }
 function fmtDate(d)   { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }
 // Converts a Date to 'YYYY-MM-DD' using its LOCAL calendar date, not UTC.
@@ -960,11 +964,12 @@ function PageVacation({ userId, profile, onProfileRefresh }) {
     setSaving(true)
     for (const b of blocks) {
       const blockDays = workingDaysInRange(new Date(b.start), new Date(b.end), profile)
-      const {error} = await supabase.from('vacation_requests').insert({
+      const {data:created, error} = await supabase.from('vacation_requests').insert({
         user_id:userId, start_date:b.start, end_date:b.end,
         days_requested:blockDays, status:'pending', submitted_at:new Date().toISOString(), validation_warnings:warnings,
-      })
+      }).select('id').single()
       if(error){setFormError(error.message);setSaving(false);return}
+      if(created?.id) notifyAdmins('vacation_request', created.id)
     }
     await supabase.from('profiles').update({vacation_pending:(profile?.vacation_pending??0)+totalDays}).eq('id',userId)
     setShowForm(false); setSelectedDays([]); setWarnings([])
@@ -1312,6 +1317,7 @@ function PageSwaps({ userId, profile }) {
 
   async function respondToSwap(id, response) {
     await supabase.from('shift_swaps').update({ target_response:response, status:response==='accepted'?'pending_admin':'declined' }).eq('id',id)
+    if (response==='accepted') notifyAdmins('swap_pending_admin', id)
     loadAll()
   }
 
