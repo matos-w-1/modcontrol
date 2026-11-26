@@ -62,15 +62,16 @@ export function PageDashboard({ onDuty, weeklyHours, upcomingLeave, pendingCount
         </div>
       </div>
       <div style={sa.card}>
-        <div style={sa.cardHead}><span style={sa.cardTitle}>Weekly Hours</span><span style={sa.chip}>Target: 35h</span></div>
+        <div style={sa.cardHead}><span style={sa.cardTitle}>Weekly Hours</span><span style={sa.chip}>Target by shift: Night 45h · Morning 40h · Afternoon 35h</span></div>
         {weeklyHours.length === 0 ? <p style={sa.empty}>No records this week.</p> : weeklyHours.map(mod => {
-          const pct = Math.min(100, Math.round((mod.minutes/(35*60))*100))
-          const over = mod.minutes > 35*60
+          const target = mod.target || 35*60
+          const pct = Math.min(100, Math.round((mod.minutes/target)*100))
+          const over = mod.minutes > target
           return (
             <div key={mod.name} style={sa.hoursRow}>
               <span style={sa.hoursName}>{mod.name}</span>
               <div style={sa.barTrack}><div style={{...sa.barFill, width:`${pct}%`, background: over?'linear-gradient(90deg,#f59e0b,#fbbf24)':'linear-gradient(90deg,#3b82f6,#60a5fa)'}}/></div>
-              <span style={{fontSize:'0.72rem', color: over?'#f59e0b':'#64748b', textAlign:'right', minWidth:48}}>{formatHours(mod.minutes)}</span>
+              <span style={{fontSize:'0.72rem', color: over?'#f59e0b':'#64748b', textAlign:'right', minWidth:96}}>{formatHours(mod.minutes)} / {formatHours(target)}</span>
             </div>
           )
         })}

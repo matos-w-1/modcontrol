@@ -32,7 +32,7 @@ import { PageAttendanceReport } from '../components/admin/PageAttendanceReport'
 import { AdminPageMeetingAgenda } from '../components/admin/AdminPageMeetingAgenda'
 import { AdminHub } from '../components/shared/AdminHub'
 import { Layout } from '../components/shared/Layout'
-import { lunchWindowError, unlockLunchAlerts } from '../lib/shiftTime'
+import { lunchWindowError, unlockLunchAlerts, weeklyTargetMins } from '../lib/shiftTime'
 import { LunchReminder } from '../components/shared/LunchReminder'
 import { ShiftEndReminder } from '../components/shared/ShiftEndReminder'
 import { useCallback, useEffect, useState } from 'react'
@@ -123,7 +123,7 @@ export default function App() {
       supabase.from('attendance').select('clock_in,clock_out,user_id').gte('clock_in',monday.toISOString()).not('clock_out','is',null),
       supabase.from('vacation_requests').select('id,start_date,end_date,user_id').eq('status','approved').gte('start_date',today).lte('start_date',in14).order('start_date'),
       supabase.from('vacation_requests').select('id').eq('status','pending'),
-      supabase.from('profiles').select('id,name,role'),
+      supabase.from('profiles').select('id,name,role,shift'),
     ])
     const profileMap={}; (profs||[]).forEach(p=>{profileMap[p.id]=p})
     setOnDuty((duty||[]).filter(r=>profileMap[r.user_id]?.role!=='admin').map(r=>({...r,profiles:profileMap[r.user_id]})))
@@ -132,7 +132,7 @@ export default function App() {
       const p=profileMap[row.user_id]
       if(!p||p.role==='admin') return
       const mins=Math.round((new Date(row.clock_out)-new Date(row.clock_in))/60000)
-      if(!map[p.name]) map[p.name]={name:p.name,minutes:0}
+      if(!map[p.name]) map[p.name]={name:p.name,minutes:0,target:weeklyTargetMins(p.shift)}
       map[p.name].minutes+=mins
     })
     setWeeklyHours(Object.values(map).sort((a,b)=>b.minutes-a.minutes))

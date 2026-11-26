@@ -1,4 +1,5 @@
 import { fmtDate, fmtTime, formatHours } from '../../lib/utils'
+import { weeklyTargetMins } from '../../lib/shiftTime'
 import { sa } from '../../lib/styles'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -12,7 +13,7 @@ export function PageHours() {
   const [loading, setLoading]   = useState(false)
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
-  useEffect(() => { supabase.from('profiles').select('id,name').eq('role','mod').neq('status','left').order('name').then(({data})=>setMods(data||[])) }, [])
+  useEffect(() => { supabase.from('profiles').select('id,name,shift').eq('role','mod').neq('status','left').order('name').then(({data})=>setMods(data||[])) }, [])
   useEffect(() => { if(selected) load() }, [selected, month, year])
 
   async function load() {
@@ -24,13 +25,22 @@ export function PageHours() {
   }
 
   const totalMins = records.filter(r=>r.clock_out).reduce((acc,r)=>acc+Math.round((new Date(r.clock_out)-new Date(r.clock_in))/60000),0)
-  const diff = totalMins - 35*60
+  // The 35h target is per WEEK, so for a month it is 35h x (days / 7).
+  // For the current month it only counts the days that have passed so far.
+  const today = new Date()
+  const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month
+  const daysCounted = isCurrentMonth ? today.getDate() : new Date(year, month + 1, 0).getDate()
+  const weeklyTarget = weeklyTargetMins(mods.find(m => m.id === selected)?.shift)
+  const targetMins = Math.round(weeklyTarget * daysCounted / 7)
+  const diff = totalMins - targetMins
   const byDay = {}
   records.forEach(r => {
     const day = new Date(r.clock_in).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})
     if (!byDay[day]) byDay[day] = 0
     if (r.clock_out) byDay[day] += Math.round((new Date(r.clock_out)-new Date(r.clock_in))/60000)
   })
+
+  const dayScale = Math.max(9 * 60, ...Object.values(byDay))   // the longest day fills the bar
 
   return (
     <div style={sa.content}>
@@ -52,7 +62,7 @@ export function PageHours() {
         <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:20}}>
           {[
             { label:'Total Hours', val:formatHours(totalMins), col:'#60a5fa' },
-            { label:'Target', val:'35h', col:'#94a3b8' },
+            { label:`${isCurrentMonth ? 'Target so far' : 'Target'} (${weeklyTarget/60}h/week)`, val:formatHours(targetMins), col:'#94a3b8' },
             { label:'vs Target', val:(diff>=0?'+':'')+formatHours(Math.abs(diff)), col:diff>=0?'#34d399':'#f87171' },
             { label:'Days Worked', val:Object.keys(byDay).length, col:'#8b5cf6' },
           ].map(item=>(
@@ -63,15 +73,16 @@ export function PageHours() {
           ))}
         </div>
         <div style={sa.card}>
-          <div style={sa.cardHead}><span style={sa.cardTitle}>Daily Breakdown — {MONTHS[month]} {year}</span></div>
+          <div style={sa.cardHead}><span style={sa.cardTitle}>Daily Breakdown — {MONTHS[month]} {year}</span><span style={{fontSize:'0.7rem', color:'#fbbf24'}}>Orange = more than 10h in one day</span></div>
           {Object.keys(byDay).length === 0 ? <p style={sa.empty}>No records.</p> : (
             <div style={{display:'flex', flexDirection:'column', gap:6}}>
               {Object.entries(byDay).map(([day, mins]) => {
-                const pct = Math.min(100, Math.round((mins/480)*100))
+                const pct = Math.min(100, Math.round((mins / dayScale) * 100))
+                const longDay = mins > 10 * 60     // more than one shift in the same day
                 return (
                   <div key={day} style={{display:'grid', gridTemplateColumns:'80px 1fr 60px', gap:12, alignItems:'center'}}>
                     <span style={{fontSize:'0.78rem', color:'#94a3b8'}}>{day}</span>
-                    <div style={sa.barTrack}><div style={{...sa.barFill, width:`${pct}%`, background:'linear-gradient(90deg,#3b82f6,#60a5fa)'}}/></div>
+                    <div style={sa.barTrack}><div style={{...sa.barFill, width:`${pct}%`, background: longDay ? 'linear-gradient(90deg,#d97706,#fbbf24)' : 'linear-gradient(90deg,#3b82f6,#60a5fa)'}}/></div>
                     <span style={{fontSize:'0.72rem', color:'#64748b', textAlign:'right'}}>{formatHours(mins)}</span>
                   </div>
                 )
