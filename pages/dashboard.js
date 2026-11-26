@@ -1757,18 +1757,37 @@ function TeamDirectory() {
   const [mods, setMods]     = useState([])
   const [search, setSearch] = useState('')
   useEffect(()=>{
-    supabase.from('profiles').select('id,name,full_name,nickname,shift,timezone,discord_name,telegram_name,days_off,mod_group,status,avatar_url').eq('role','mod').neq('status','left').order('name')
-      .then(({data})=>setMods(data||[]))
+    supabase.from('profiles').select('id,name,full_name,nickname,shift,timezone,discord_name,telegram_name,days_off,rotating_days_off,rotating_days_off_alt,mod_group,status,avatar_url').eq('role','mod').neq('status','left').order('name')
+      .then(({data})=>setMods((data||[]).filter(x=>!isTestAccount(x))))
   },[])
   const SHIFT_COLOR = SHIFT_COLORS
   const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
   const filtered=mods.filter(m=>m.name?.toLowerCase().includes(search.toLowerCase())||m.full_name?.toLowerCase().includes(search.toLowerCase())||m.discord_name?.toLowerCase().includes(search.toLowerCase()))
+  // Days off that apply this month (handles monthly rotation)
+  const isEvenMonth = (new Date().getMonth() + 1) % 2 === 0
+  const daysOffNow = m => m.rotating_days_off ? (isEvenMonth ? (m.days_off||[]) : (m.rotating_days_off_alt||[])) : (m.days_off||[])
+  // Grouped by shift instead of one long list by name
+  const SHIFT_ORDER = [
+    { key:'Morning Shift',   label:'Morning',   hours:'9 AM–5 PM' },
+    { key:'Afternoon Shift', label:'Afternoon', hours:'5 PM–12 AM' },
+    { key:'Night Shift',     label:'Night',     hours:'12 AM–9 AM' },
+    { key:null,              label:'No shift',  hours:'' },
+  ]
+  const groups = SHIFT_ORDER.map(g => ({ ...g, mods: filtered.filter(m => g.key ? m.shift === g.key : !['Morning Shift','Afternoon Shift','Night Shift'].includes(m.shift)) })).filter(g => g.mods.length > 0)
   return (
     <div style={s.card}>
       <div style={s.cardHead}><span style={s.cardTitle}>Team Directory</span><span style={s.chip}>{mods.length} mods</span></div>
       <input style={{...s.input,marginBottom:16,width:'100%'}} placeholder="Search…" value={search} onChange={e=>setSearch(e.target.value)}/>
-      {filtered.map(m=>{
-        const shiftColor=SHIFT_COLOR[m.shift]||'#94a3b8', daysOff=m.days_off||[]
+      {groups.map(g => (
+      <div key={g.label} style={{marginBottom:18}}>
+        <div style={{display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:`2px solid ${(g.key?SHIFT_COLOR[g.key]:'#94a3b8')}55`}}>
+          <span style={{width:10, height:10, borderRadius:3, background:g.key?SHIFT_COLOR[g.key]:'#94a3b8'}}/>
+          <span style={{fontSize:'0.82rem', fontWeight:700, color:'#f1f5f9', textTransform:'uppercase', letterSpacing:'0.05em'}}>{g.label}</span>
+          {g.hours && <span style={{fontSize:'0.72rem', color:'#64748b'}}>{g.hours} (UTC+1)</span>}
+          <span style={{marginLeft:'auto', fontSize:'0.72rem', color:'#64748b'}}>{g.mods.length} {g.mods.length===1?'mod':'mods'}</span>
+        </div>
+      {g.mods.map(m=>{
+        const shiftColor=SHIFT_COLOR[m.shift]||'#94a3b8', daysOff=daysOffNow(m)
         return (
  <div key={m.id} style={{padding:'12px 0',borderBottom:'1px solid #1e2433'}}>
   <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
@@ -1783,7 +1802,6 @@ function TeamDirectory() {
                   <span style={{fontSize:'0.87rem',fontWeight:600,color:'#f1f5f9'}}>{m.name}</span>
                   {m.nickname&&<span style={{fontSize:'0.72rem',color:'#64748b'}}>"{m.nickname}"</span>}
                   {m.mod_group==='russian'&&<span style={{fontSize:'0.6rem',background:'#f59e0b22',color:'#f59e0b',padding:'1px 5px',borderRadius:3,fontWeight:700}}>RU</span>}
-                  {m.shift&&<span style={{fontSize:'0.68rem',background:shiftColor+'22',color:shiftColor,padding:'2px 8px',borderRadius:4,fontWeight:600}}>{m.shift}</span>}
                   {m.timezone&&<span style={{fontSize:'0.68rem',color:'#64748b'}}>🌍 {m.timezone}</span>}
                 </div>
                 {m.full_name&&<div style={{fontSize:'0.72rem',color:'#64748b',marginTop:2}}>{m.full_name}</div>}
@@ -1801,6 +1819,8 @@ function TeamDirectory() {
           </div>
         )
       })}
+      </div>
+      ))}
     </div>
   )
 }
