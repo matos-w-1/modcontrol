@@ -33,7 +33,7 @@ const TEST_ACCOUNT_NAMES = ['test', 'test account']
 const SHIFT_COLORS = { 'Morning Shift':'#3b82f6', 'Afternoon Shift':'#ef4444', 'Night Shift':'#22c55e' }
 const SWAP_COLOR = '#cbd5e1'
 function isTestAccount(p) { return TEST_ACCOUNT_NAMES.includes((p?.name || '').trim().toLowerCase()) }
-function fmtTime(iso) { if (!iso) return '—'; return new Date(iso).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) }
+function fmtTime(iso) { if (!iso) return '—'; return new Date(iso).toLocaleTimeString('en-US',{ hour:'numeric', minute:'2-digit', hour12:true }) }
 function fmtDate(d)   { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }
 // Converts a Date to 'YYYY-MM-DD' using its LOCAL calendar date, not UTC.
 // date.toISOString() converts to UTC first, which silently shifts the date
@@ -2321,7 +2321,7 @@ function PageMeetingAgenda({ userId }) {
               <div style={{flex:1}}>
                 <div style={{fontSize:'0.95rem',fontWeight:700,color:'#f1f5f9'}}>{selected.topic}</div>
                 <div style={{fontSize:'0.72rem',color:'#64748b',marginTop:4}}>
-                  by {selected.profiles?.name||'Unknown'} · {new Date(selected.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} at {new Date(selected.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+                  by {selected.profiles?.name||'Unknown'} · {new Date(selected.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} at {new Date(selected.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit', hour12:true})}
                 </div>
               </div>
               <span style={{color:'#4a5568',cursor:'pointer',fontSize:'1.2rem',padding:4}} onClick={()=>setSelected(null)}>✕</span>
@@ -2402,7 +2402,7 @@ function PageMeetingAgenda({ userId }) {
                 <div style={{fontSize:'0.87rem',fontWeight:600,color:'#f1f5f9',marginBottom:2}}>{item.topic}</div>
                 {item.description && <div style={{fontSize:'0.78rem',color:'#64748b',lineHeight:1.4,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.description}</div>}
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontSize:'0.7rem',color:'#4a5568'}}>by {item.profiles?.name||'Unknown'} · {new Date(item.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} {new Date(item.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
+                  <span style={{fontSize:'0.7rem',color:'#4a5568'}}>by {item.profiles?.name||'Unknown'} · {new Date(item.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} {new Date(item.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit', hour12:true})}</span>
                   {item.image_url && <span style={{fontSize:'0.68rem',color:'#3b82f6',background:'#3b82f618',padding:'1px 6px',borderRadius:4}}>📎 screenshot</span>}
                 </div>
               </div>
@@ -4622,7 +4622,7 @@ function AdminPageMeetingAgenda({ adminId }) {
               <div style={{flex:1}}>
                 <div style={{fontSize:'0.95rem',fontWeight:700,color:'#f1f5f9'}}>{selected.topic}</div>
                 <div style={{fontSize:'0.72rem',color:'#64748b',marginTop:4}}>
-                  by {mods[selected.submitted_by]?.name||'Unknown'} · {new Date(selected.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} at {new Date(selected.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+                  by {mods[selected.submitted_by]?.name||'Unknown'} · {new Date(selected.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} at {new Date(selected.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit', hour12:true})}
                 </div>
               </div>
               <span style={{color:'#4a5568',cursor:'pointer',fontSize:'1.2rem',padding:4}} onClick={()=>setSelected(null)}>✕</span>
@@ -4679,7 +4679,7 @@ function AdminPageMeetingAgenda({ adminId }) {
                 <div style={{fontSize:'0.87rem',fontWeight:600,color:'#f1f5f9',marginBottom:2}}>{item.topic}</div>
                 {item.description && <div style={{fontSize:'0.78rem',color:'#64748b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:4}}>{item.description}</div>}
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontSize:'0.7rem',color:'#4a5568'}}>by {mods[item.submitted_by]?.name||'Unknown'} · {new Date(item.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} {new Date(item.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
+                  <span style={{fontSize:'0.7rem',color:'#4a5568'}}>by {mods[item.submitted_by]?.name||'Unknown'} · {new Date(item.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} {new Date(item.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit', hour12:true})}</span>
                   {item.image_url && <span style={{fontSize:'0.68rem',color:'#3b82f6',background:'#3b82f618',padding:'1px 6px',borderRadius:4}}>📎 screenshot</span>}
                 </div>
               </div>
@@ -4850,7 +4850,7 @@ function Layout({ profile, page, setPage, onLogout, children }) {
   const [settings, setSettings]           = useState({
     theme:'dark', fontSize:'medium', language:'english',
     notifSwaps:true, notifVacations:true, notifBirthdays:true, notifSound:false,
-    showDirectory:true, showBirthdays:true, timeFormat:'24h',
+    showDirectory:true, showBirthdays:true,
     showDiscord:true, showTelegram:true, showBirthday:true,
   })
   const [userStatus, setUserStatus]       = useState(profile?.user_status || 'online')
@@ -5170,16 +5170,6 @@ function Layout({ profile, page, setPage, onLogout, children }) {
           </div>
         </div>
 
-        <div>
-          <div style={{fontSize:'0.72rem', color:'#4a5568', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10}}>Time Format</div>
-          <div style={{display:'flex', gap:8}}>
-            {['24h','12h'].map(fmt => (
-              <div key={fmt} onClick={()=>updateSetting('timeFormat',fmt)} style={{flex:1, padding:'8px', borderRadius:8, cursor:'pointer', border:`1px solid ${settings.timeFormat===fmt?'#3b82f6':'#2d3748'}`, background:settings.timeFormat===fmt?'#3b82f622':'#0f1117', textAlign:'center', fontSize:'0.78rem', color:settings.timeFormat===fmt?'#60a5fa':'#94a3b8', fontWeight:settings.timeFormat===fmt?600:400}}>
-                {fmt}
-              </div>
-            ))}
-          </div>
-        </div>
 
       </div>
     </div>
@@ -5358,7 +5348,7 @@ function shiftEndFor(clockIn, shift) {
 const LUNCH_EDGE_MIN = 60
 function lunchWindowError(clockIn, shift) {
   if (!clockIn) return null
-  const t = n => n.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })
+  const t = n => n.toLocaleTimeString('en-US',{ hour:'numeric', minute:'2-digit', hour12:true})
   const now = new Date()
   const opens = new Date(new Date(clockIn).getTime() + LUNCH_EDGE_MIN * 60000)
   if (now < opens) return `Lunch is only allowed from 1 hour after your shift starts. You can start lunch from ${t(opens)}.`
