@@ -1783,7 +1783,7 @@ function TeamDirectory() {
         <div style={{display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:`2px solid ${(g.key?SHIFT_COLOR[g.key]:'#94a3b8')}55`}}>
           <span style={{width:10, height:10, borderRadius:3, background:g.key?SHIFT_COLOR[g.key]:'#94a3b8'}}/>
           <span style={{fontSize:'0.82rem', fontWeight:700, color:'#f1f5f9', textTransform:'uppercase', letterSpacing:'0.05em'}}>{g.label}</span>
-          {g.hours && <span style={{fontSize:'0.72rem', color:'#64748b'}}>{g.hours} (UTC+1)</span>}
+          {g.hours && <span style={{fontSize:'0.72rem', color:'#64748b'}}>{g.hours} (Lisbon time)</span>}
           <span style={{marginLeft:'auto', fontSize:'0.72rem', color:'#64748b'}}>{g.mods.length} {g.mods.length===1?'mod':'mods'}</span>
         </div>
       {g.mods.map(m=>{
@@ -1993,9 +1993,9 @@ function ShiftCalendar({ title, accent, rows }) {
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#cbd5e1'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
       </div>
       <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:16}}>🇬🇧 English Moderators</div>
-      <ShiftCalendar title="Night Shift · 12 AM–9 AM UTC+1"     accent={SHIFT_COLORS['Night Shift']} rows={nightMods}/>
-      <ShiftCalendar title="Morning Shift · 9 AM–5 PM UTC+1"   accent={SHIFT_COLORS['Morning Shift']} rows={morningMods}/>
-      <ShiftCalendar title="Afternoon Shift · 5 PM–12 AM UTC+1" accent={SHIFT_COLORS['Afternoon Shift']} rows={afternoonMods}/>
+      <ShiftCalendar title="Night Shift · 12 AM–9 AM Lisbon time"     accent={SHIFT_COLORS['Night Shift']} rows={nightMods}/>
+      <ShiftCalendar title="Morning Shift · 9 AM–5 PM Lisbon time"   accent={SHIFT_COLORS['Morning Shift']} rows={morningMods}/>
+      <ShiftCalendar title="Afternoon Shift · 5 PM–12 AM Lisbon time" accent={SHIFT_COLORS['Afternoon Shift']} rows={afternoonMods}/>
       {russianMods.length > 0 && (
         <>
           <div style={{fontSize:'0.75rem', color:'#f59e0b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', margin:'24px 0 16px'}}>🇷🇺 Russian Moderators</div>
@@ -3368,9 +3368,9 @@ async function load() {
       {view==='schedule' && (
         <>
           <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12}}>🇬🇧 English Moderators</div>
-          {nightEn.length>0     && <ShiftTable title={`Night Shift · ${SHIFT_TIMES['Night Shift']} UTC+1`}     rows={nightEn}     accent={SHIFT_COLORS['Night Shift']}/>}
-          {morningEn.length>0   && <ShiftTable title={`Morning Shift · ${SHIFT_TIMES['Morning Shift']} UTC+1`}   rows={morningEn}   accent={SHIFT_COLORS['Morning Shift']}/>}
-          {afternoonEn.length>0 && <ShiftTable title={`Afternoon Shift · ${SHIFT_TIMES['Afternoon Shift']} UTC+1`} rows={afternoonEn} accent={SHIFT_COLORS['Afternoon Shift']}/>}
+          {nightEn.length>0     && <ShiftTable title={`Night Shift · ${SHIFT_TIMES['Night Shift']} Lisbon time`}     rows={nightEn}     accent={SHIFT_COLORS['Night Shift']}/>}
+          {morningEn.length>0   && <ShiftTable title={`Morning Shift · ${SHIFT_TIMES['Morning Shift']} Lisbon time`}   rows={morningEn}   accent={SHIFT_COLORS['Morning Shift']}/>}
+          {afternoonEn.length>0 && <ShiftTable title={`Afternoon Shift · ${SHIFT_TIMES['Afternoon Shift']} Lisbon time`} rows={afternoonEn} accent={SHIFT_COLORS['Afternoon Shift']}/>}
           {russianMods.length>0 && (
             <>
               <div style={{fontSize:'0.75rem', color:'#f59e0b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', margin:'24px 0 12px'}}>🇷🇺 Russian Moderators</div>
@@ -3911,9 +3911,9 @@ function AdminPageCalendar() {
         <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:'0.72rem'}}>🎂</span><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Birthday</span></div>
       </div>
       <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:16}}>🇬🇧 English Tickets</div>
-      <ShiftCalendar title="Night Shift · 12 AM–9 AM UTC+1"     accent={SHIFT_COLORS['Night Shift']} rows={nightMods}/>
-      <ShiftCalendar title="Morning Shift · 9 AM–5 PM UTC+1"   accent={SHIFT_COLORS['Morning Shift']} rows={morningMods}/>
-      <ShiftCalendar title="Afternoon Shift · 5 PM–12 AM UTC+1" accent={SHIFT_COLORS['Afternoon Shift']} rows={afternoonMods}/>
+      <ShiftCalendar title="Night Shift · 12 AM–9 AM Lisbon time"     accent={SHIFT_COLORS['Night Shift']} rows={nightMods}/>
+      <ShiftCalendar title="Morning Shift · 9 AM–5 PM Lisbon time"   accent={SHIFT_COLORS['Morning Shift']} rows={morningMods}/>
+      <ShiftCalendar title="Afternoon Shift · 5 PM–12 AM Lisbon time" accent={SHIFT_COLORS['Afternoon Shift']} rows={afternoonMods}/>
       {russianMods.length > 0 && (
         <>
           <div style={{fontSize:'0.75rem', color:'#f59e0b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', margin:'24px 0 16px'}}>🇷🇺 Russian Tickets</div>
@@ -5324,17 +5324,32 @@ function LunchReminder({ attendance, onEndLunch }) {
 }
 
 // ==================== SHIFT END REMINDER ====================
-const SHIFT_END_HOUR = { 'Night Shift':9, 'Morning Shift':17, 'Afternoon Shift':24 } // wall-clock hours, UTC+1 (same as the shift labels)
+const SHIFT_END_HOUR = { 'Night Shift':9, 'Morning Shift':17, 'Afternoon Shift':24 } // wall-clock hours in Lisbon time
 const SHIFT_WARN_MIN = 10   // soft heads-up this many minutes before the shift ends
 
-// When does the shift that started at `clockIn` end? Shift hours are defined in
-// UTC+1, so this does not depend on the timezone of the mod's computer.
+// Shift hours are Lisbon time (Europe/Lisbon: UTC+1 in summer, UTC+0 in winter), so the
+// end of a shift follows the clock change by itself and does not depend on the mod's computer.
+const SHIFT_TZ = 'Europe/Lisbon'
+function lisbonParts(date) {
+  const f = new Intl.DateTimeFormat('en-GB', { timeZone: SHIFT_TZ, hourCycle:'h23', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' })
+  const o = {}
+  f.formatToParts(date).forEach(p => { if (p.type !== 'literal') o[p.type] = Number(p.value) })
+  return o
+}
+// Offset of Lisbon from UTC (in ms) at a given instant: 0 in winter, 3600000 in summer.
+function lisbonOffsetMs(date) {
+  const p = lisbonParts(date)
+  return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(date.getTime() / 1000) * 1000
+}
+// When does the shift that started at `clockIn` end?
 function shiftEndFor(clockIn, shift) {
   const endHour = SHIFT_END_HOUR[shift]
   if (endHour === undefined) return null
   const start = new Date(clockIn)
-  const wall = new Date(start.getTime() + 3600000) // shift the clock to UTC+1 wall time
-  let end = new Date(Date.UTC(wall.getUTCFullYear(), wall.getUTCMonth(), wall.getUTCDate(), endHour, 0, 0) - 3600000)
+  const p = lisbonParts(start)                                  // the clock-in day, as a Lisbon calendar date
+  const guess = new Date(Date.UTC(p.year, p.month - 1, p.day, endHour, 0, 0))   // end hour read as if it were UTC (hour 24 = next midnight)
+  let end = new Date(guess.getTime() - lisbonOffsetMs(guess))   // convert Lisbon wall time -> real instant
+  end = new Date(guess.getTime() - lisbonOffsetMs(end))         // second pass, right at a clock change
   if (end <= start) end = new Date(end.getTime() + 86400000)
   return end
 }
