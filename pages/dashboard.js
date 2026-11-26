@@ -31,7 +31,7 @@ const Icon = {
 const TEST_ACCOUNT_NAMES = ['test', 'test account']
 // One palette for every calendar: shifts and statuses use clearly different colors.
 const SHIFT_COLORS = { 'Morning Shift':'#3b82f6', 'Afternoon Shift':'#ef4444', 'Night Shift':'#22c55e' }
-const SWAP_COLOR = '#facc15'
+const SWAP_COLOR = '#f97316'
 function isTestAccount(p) { return TEST_ACCOUNT_NAMES.includes((p?.name || '').trim().toLowerCase()) }
 function fmtTime(iso) { if (!iso) return '—'; return new Date(iso).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) }
 function fmtDate(d)   { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }
@@ -598,9 +598,9 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
     const dayName = date.toLocaleDateString('en-GB',{weekday:'long'})
     let daysOff = mod.days_off||[]
     if (mod.rotating_days_off) daysOff = isEvenMonth ? (mod.days_off||[]) : (mod.rotating_days_off_alt||[])
-    if (calVacs.some(v=>v.user_id===mod.id&&d>=v.start_date&&d<=v.end_date)) return { label:'VAC', color:'#a855f7' }
-    if (calSwaps.some(sw=>(sw.swap_date===d||sw.target_date===d)&&(sw.requester_id===mod.id||sw.target_id===mod.id))) return { label:'SWAP', color:'#facc15' }
-    if (daysOff.includes(dayName)) return { label:'OFF', color:'#94a3b8' }
+    if (calVacs.some(v=>v.user_id===mod.id&&d>=v.start_date&&d<=v.end_date)) return { label:'VAC', color:'#ca8a04' }
+    if (calSwaps.some(sw=>(sw.swap_date===d||sw.target_date===d)&&(sw.requester_id===mod.id||sw.target_id===mod.id))) return { label:'SWAP', color:'#f97316' }
+    if (daysOff.includes(dayName)) return { label:'OFF', color:'#facc15' }
     const color = SHIFT_COLOR[mod.shift]||'#94a3b8'
     return { label:'●', color }
   }
@@ -708,7 +708,7 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
             return (
               <div key={day} style={{textAlign:'center', padding:'10px 4px', borderRadius:8, background:isOff?'#f8717115':isToday?'#3b82f620':'#0f1117', border:`1px solid ${isOff?'#f8717133':isToday?'#3b82f644':'#1e2433'}`}}>
                 <div style={{fontSize:'0.65rem', color:isOff?'#f87171':isToday?'#60a5fa':'#64748b', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:4}}>{day.slice(0,3)}</div>
-                <div style={{fontSize:'0.7rem', fontWeight:600, color:isOff?'#94a3b8':isToday?'#60a5fa':'#94a3b8'}}>{isOff?'OFF':profile?.shift?.split(' ')[0]||'—'}</div>
+                <div style={{fontSize:'0.7rem', fontWeight:600, color:isOff?'#facc15':isToday?'#60a5fa':'#94a3b8'}}>{isOff?'OFF':profile?.shift?.split(' ')[0]||'—'}</div>
               </div>
             )
           })}
@@ -780,7 +780,7 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
                 const hours = { 'Morning Shift':'9 AM–5 PM', 'Afternoon Shift':'5 PM–12 AM', 'Night Shift':'12 AM–9 AM' }[shiftName]
                 return [
                   <tr key={'h-'+(shiftName||'none')}>
-                    <td colSpan={days7.length+1} style={{padding:'14px 0 6px', fontSize:'0.68rem', fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:'#94a3b8', borderBottom:'1px solid #1e2433'}}>
+                    <td colSpan={days7.length+1} style={{padding:'14px 0 6px', fontSize:'0.68rem', fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:(shiftName&&SHIFT_COLORS[shiftName])||'#94a3b8', borderBottom:`2px solid ${((shiftName&&SHIFT_COLORS[shiftName])||'#94a3b8')}55`}}>
                       {shiftName ? shiftName.replace(' Shift','') : 'No shift'}{hours && <span style={{fontWeight:500, color:'#64748b', marginLeft:8, textTransform:'none', letterSpacing:0}}>{hours}</span>}
                     </td>
                   </tr>,
@@ -795,7 +795,7 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
                         return (
                           <td key={i} style={{...s.td, textAlign:'center', padding:'6px 2px', background: i===0?'#3b82f608':undefined}}>
                             {isWorking
-                              ? <div style={{width:6, height:6, borderRadius:'50%', background:'#64748b', margin:'0 auto'}}/>
+                              ? <div style={{width:6, height:6, borderRadius:'50%', background:SHIFT_COLORS[mod.shift]||'#64748b', margin:'0 auto'}}/>
                               : <div style={{fontSize:'0.62rem', fontWeight:700, color:status.color, background:status.color+'22', padding:'3px 4px', borderRadius:4, textTransform:'uppercase'}}>{status.label}</div>
                             }
                           </td>
@@ -809,15 +809,15 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
           </table>
         </div>
         <div style={{display:'flex', gap:16, marginTop:12, flexWrap:'wrap'}}>
-          {[['#a855f7','Vacation (VAC)'],['#94a3b8','Day off (OFF)'],['#facc15','Shift swap (SWAP)']].map(([color,label])=>(
+          {[['#ca8a04','Vacation (VAC)'],['#facc15','Day off (OFF)'],['#f97316','Shift swap (SWAP)']].map(([color,label])=>(
             <div key={label} style={{display:'flex',alignItems:'center',gap:5}}>
               <div style={{width:8,height:8,borderRadius:2,background:color}}/>
               <span style={{fontSize:'0.7rem',color:'#64748b'}}>{label}</span>
             </div>
           ))}
           <div style={{display:'flex',alignItems:'center',gap:5}}>
-            <div style={{width:6,height:6,borderRadius:'50%',background:'#64748b'}}/>
-            <span style={{fontSize:'0.7rem',color:'#64748b'}}>Working</span>
+            {Object.entries(SHIFT_COLORS).map(([sh,c])=><div key={sh} style={{width:6,height:6,borderRadius:'50%',background:c}}/>)}
+            <span style={{fontSize:'0.7rem',color:'#64748b'}}>Working (colored by shift)</span>
           </div>
         </div>
       </div>
@@ -1090,7 +1090,7 @@ function VacationDatePicker({ profile, myRequests, selectedDays, setSelectedDays
         })}
       </div>
       <div style={{display:'flex', gap:16, flexWrap:'wrap', marginTop:14}}>
-        <div style={{display:'flex', alignItems:'center', gap:6}}><div style={{width:10,height:10,borderRadius:3,background:'#94a3b8'}}/><span style={{fontSize:'0.72rem', color:'#94a3b8'}}>Your day off</span></div>
+        <div style={{display:'flex', alignItems:'center', gap:6}}><div style={{width:10,height:10,borderRadius:3,background:'#facc15'}}/><span style={{fontSize:'0.72rem', color:'#94a3b8'}}>Your day off</span></div>
         <div style={{display:'flex', alignItems:'center', gap:6}}><div style={{width:10,height:10,borderRadius:3,background:'#34d399'}}/><span style={{fontSize:'0.72rem', color:'#94a3b8'}}>Already requested</span></div>
         <div style={{display:'flex', alignItems:'center', gap:6}}><div style={{width:10,height:10,borderRadius:3,background:'#3b82f6'}}/><span style={{fontSize:'0.72rem', color:'#94a3b8'}}>Selected</span></div>
       </div>
@@ -1240,8 +1240,8 @@ function SwapCalendarPicker({ userId, form, setForm }) {
                       const selected = isMe ? iso===form.my_date : (mod.id===form.target_id && iso===form.their_date)
                       return (
                         <td key={i} onClick={()=>handleClick(mod,d)} style={{padding:'5px 2px', textAlign:'center', cursor:working?'pointer':'default', opacity:past?0.35:1}}>
-                          {vac ? <div style={{fontSize:'0.52rem', fontWeight:700, color:'#a855f7'}}>VAC</div>
-                            : off ? <div style={{fontSize:'0.52rem', fontWeight:700, color:'#94a3b8'}}>OFF</div>
+                          {vac ? <div style={{fontSize:'0.52rem', fontWeight:700, color:'#ca8a04'}}>VAC</div>
+                            : off ? <div style={{fontSize:'0.52rem', fontWeight:700, color:'#facc15'}}>OFF</div>
                             : <div style={{width:15, height:15, borderRadius:5, margin:'0 auto', background:selected?'#3b82f6':'#3b82f622', border:selected?'1px solid #3b82f6':'1px solid #3b82f633'}}/>}
                         </td>
                       )
@@ -1542,7 +1542,7 @@ function PageProfile({ userId, profile, onRefresh }) {
             return (
               <div key={day} style={{textAlign:'center', padding:'10px 4px', borderRadius:8, background:isOff?'#f8717115':isToday?'#3b82f620':'#0f1117', border:`1px solid ${isOff?'#f8717133':isToday?'#3b82f644':'#1e2433'}`}}>
                 <div style={{fontSize:'0.65rem', color:isOff?'#f87171':isToday?'#60a5fa':'#64748b', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:4}}>{day.slice(0,3)}</div>
-                <div style={{fontSize:'0.7rem', fontWeight:600, color:isOff?'#94a3b8':isToday?'#60a5fa':'#94a3b8'}}>{isOff?'OFF':profile?.shift?.split(' ')[0]||'—'}</div>
+                <div style={{fontSize:'0.7rem', fontWeight:600, color:isOff?'#facc15':isToday?'#60a5fa':'#94a3b8'}}>{isOff?'OFF':profile?.shift?.split(' ')[0]||'—'}</div>
               </div>
             )
           })}
@@ -1812,7 +1812,7 @@ function TeamDirectory() {
               </div>
               <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
                 {DAYS.map(d=>(
-                  <div key={d} style={{fontSize:'0.6rem',fontWeight:700,padding:'3px 5px',borderRadius:4,background:daysOff.includes(d)?'#94a3b822':shiftColor+'15',color:daysOff.includes(d)?'#94a3b8':shiftColor,textTransform:'uppercase'}}>{d.slice(0,2)}</div>
+                  <div key={d} style={{fontSize:'0.6rem',fontWeight:700,padding:'3px 5px',borderRadius:4,background:daysOff.includes(d)?'#facc1522':shiftColor+'15',color:daysOff.includes(d)?'#facc15':shiftColor,textTransform:'uppercase'}}>{d.slice(0,2)}</div>
                 ))}
               </div>
             </div>
@@ -1892,9 +1892,9 @@ function PageCalendar() {
       return bd.getMonth()===date.getMonth() && bd.getDate()===date.getDate()
     })
     if (isBirthday)                  return { label:'🎂', color:'#f472b6', bg:'#f472b618' }
-    if (isOnVacation(mod.id, date))  return { label:'VAC', color:'#a855f7', bg:'#a855f718' }
-    if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#facc15', bg:'#facc1518' }
-    if (isOff(mod, date))            return { label:'OFF', color:'#94a3b8', bg:'#94a3b818' }
+    if (isOnVacation(mod.id, date))  return { label:'VAC', color:'#ca8a04', bg:'#ca8a0418' }
+    if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#f97316', bg:'#f9731618' }
+    if (isOff(mod, date))            return { label:'OFF', color:'#facc15', bg:'#facc1518' }
 
     // Check override for this day
     const dayName = date.toLocaleDateString('en-GB',{weekday:'long'})
@@ -1988,9 +1988,9 @@ function ShiftCalendar({ title, accent, rows }) {
       </div>
       <div style={{display:'flex', gap:16, flexWrap:'wrap', marginBottom:24}}>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:5,height:5,borderRadius:'50%',background:'#334155'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Working</span></div>
-        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#94a3b8'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Day Off</span></div>
-        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#a855f7'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Vacation</span></div>
-        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#facc15'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#facc15'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Day Off</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#ca8a04'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Vacation</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#f97316'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
       </div>
       <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:16}}>🇬🇧 English Moderators</div>
       <ShiftCalendar title="Night Shift · 12 AM–9 AM UTC+1"     accent={SHIFT_COLORS['Night Shift']} rows={nightMods}/>
@@ -3310,7 +3310,7 @@ async function load() {
     if (mod.rotating_days_off) {
       daysOff = isEvenMonth ? (mod.days_off || []) : (mod.rotating_days_off_alt || [])
     }
-    if (daysOff.includes(day)) return { label:'OFF', color:'#94a3b8', bg:'#94a3b818' }
+    if (daysOff.includes(day)) return { label:'OFF', color:'#facc15', bg:'#facc1518' }
     const color = SHIFT_COLOR[mod.shift] || '#94a3b8'
     return { label: mod.shift?.split(' ')[0] || '—', color, bg: color+'18' }
   }
@@ -3815,9 +3815,9 @@ function AdminPageCalendar() {
       return bd.getMonth()===date.getMonth() && bd.getDate()===date.getDate()
     })
     if (isBirthday)                  return { label:'🎂', color:'#f472b6', bg:'#f472b618' }
-    if (isOnVacation(mod.id, date))  return { label:'VAC', color:'#a855f7', bg:'#a855f718' }
-    if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#facc15', bg:'#facc1518' }
-    if (isOff(mod, date))            return { label:'OFF', color:'#94a3b8', bg:'#94a3b818' }
+    if (isOnVacation(mod.id, date))  return { label:'VAC', color:'#ca8a04', bg:'#ca8a0418' }
+    if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#f97316', bg:'#f9731618' }
+    if (isOff(mod, date))            return { label:'OFF', color:'#facc15', bg:'#facc1518' }
     const dayName = date.toLocaleDateString('en-GB',{weekday:'long'})
     const override = overrides.find(o => o.user_id===mod.id && o.day_of_week===dayName)
     if (override) {
@@ -3905,9 +3905,9 @@ function AdminPageCalendar() {
       </div>
       <div style={{display:'flex', gap:16, flexWrap:'wrap', marginBottom:24}}>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:5,height:5,borderRadius:'50%',background:'#334155'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Working</span></div>
-        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#94a3b8'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Day Off</span></div>
-        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#a855f7'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Vacation</span></div>
-        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#facc15'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#facc15'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Day Off</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#ca8a04'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Vacation</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#f97316'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:'0.72rem'}}>🎂</span><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Birthday</span></div>
       </div>
       <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:16}}>🇬🇧 English Tickets</div>
@@ -4344,7 +4344,7 @@ function PageVacationCalendar() {
                       </td>
                       {days.map(d=>(
                         <td key={d} style={{padding:'4px 1px', textAlign:'center', borderBottom:'1px solid #0f1117'}}>
-                          {isOnVac(vac,d)&&<div style={{width:'100%', height:8, background:'#a855f766', borderRadius:2}}/>}
+                          {isOnVac(vac,d)&&<div style={{width:'100%', height:8, background:'#ca8a0466', borderRadius:2}}/>}
                         </td>
                       ))}
                       <td style={{padding:'4px 6px', borderBottom:'1px solid #0f1117', whiteSpace:'nowrap'}}>
