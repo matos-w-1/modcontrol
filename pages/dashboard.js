@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { MOD_SECTIONS, ADMIN_SECTIONS, hasPermission, filterAdminNav, filterModNav } from '../lib/permissions'
+import { hasPermission, filterAdminNav, filterModNav } from '../lib/permissions'
 
 const Icon = {
   home:   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
@@ -4721,130 +4721,6 @@ function AdminPageMeetingAgenda({ adminId }) {
 }
 
 
-// ==================== PERMISSIONS MANAGEMENT (super-admin only) ====================
-
-function PermissionsList({ role, sections, allowSuperToggle }) {
-  const [people, setPeople]   = useState([])
-  const [loading, setLoading] = useState(true)
-  const [draft, setDraft]     = useState({})
-  const [savingId, setSavingId] = useState(null)
-  const [expanded, setExpanded] = useState(null)
-
-  useEffect(() => { load() }, [role])
-
-  async function load() {
-    setLoading(true)
-    const { data } = await supabase.from('profiles').select('id,name,email,permissions,is_super_admin').eq('role',role).order('name')
-    setPeople(data || [])
-    const d = {}
-    ;(data || []).forEach(p => { d[p.id] = { permissions: Array.isArray(p.permissions) ? p.permissions : [], is_super_admin: !!p.is_super_admin } })
-    setDraft(d)
-    setLoading(false)
-  }
-
-  function toggleSection(personId, sectionId) {
-    setDraft(d => {
-      const cur = d[personId]?.permissions || []
-      const next = cur.includes(sectionId) ? cur.filter(x => x !== sectionId) : [...cur, sectionId]
-      return { ...d, [personId]: { ...d[personId], permissions: next } }
-    })
-  }
-
-  function toggleSuper(personId) {
-    setDraft(d => ({ ...d, [personId]: { ...d[personId], is_super_admin: !d[personId]?.is_super_admin } }))
-  }
-
-  async function save(personId) {
-    setSavingId(personId)
-    const { permissions, is_super_admin } = draft[personId]
-    const update = allowSuperToggle ? { permissions, is_super_admin } : { permissions }
-    await supabase.from('profiles').update(update).eq('id', personId)
-    await load()
-    setSavingId(null)
-  }
-
-  const groups = [...new Set(sections.map(s2 => s2.group))]
-
-  if (loading) return <div style={sa.empty}>Loading…</div>
-  if (people.length === 0) return <div style={sa.empty}>No {role === 'admin' ? 'admins' : 'moderators'} found.</div>
-
-  return (
-    <>
-      {people.map(person => {
-        const d = draft[person.id] || { permissions: [], is_super_admin: false }
-        const isOpen = expanded === person.id
-        const bypassesGating = allowSuperToggle && d.is_super_admin
-        return (
-          <div key={person.id} style={sa.card}>
-            <div style={{...sa.cardHead, cursor:'pointer'}} onClick={() => setExpanded(isOpen ? null : person.id)}>
-              <div>
-                <div style={sa.cardTitle}>{person.name}</div>
-                <div style={{fontSize:'0.75rem', color:'#64748b', marginTop:2}}>{person.email || '—'}</div>
-              </div>
-              <div style={{display:'flex', alignItems:'center', gap:12}}>
-                {allowSuperToggle && (
-                  <label style={{display:'flex', alignItems:'center', gap:6, fontSize:'0.78rem', color:'#94a3b8', cursor:'pointer'}}>
-                    <input type="checkbox" checked={!!d.is_super_admin} onChange={() => toggleSuper(person.id)} />
-                    Super-admin (sees everything)
-                  </label>
-                )}
-                <button style={sa.filterBtn} onClick={() => setExpanded(isOpen ? null : person.id)}>{isOpen ? 'Close' : 'Edit sections'}</button>
-              </div>
-            </div>
-            {isOpen && !bypassesGating && (
-              <div style={{marginTop:16, borderTop:'1px solid #1e2433', paddingTop:16}}>
-                {groups.map(g => (
-                  <div key={g} style={{marginBottom:14}}>
-                    <div style={{fontSize:'0.68rem', fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8}}>{g}</div>
-                    <div style={{display:'flex', flexWrap:'wrap', gap:10}}>
-                      {sections.filter(s2 => s2.group === g).map(s2 => (
-                        <label key={s2.id} style={{display:'flex', alignItems:'center', gap:6, fontSize:'0.8rem', color:'#e2e8f0', background:'#0f1117', border:'1px solid #2d3748', borderRadius:8, padding:'6px 10px', cursor:'pointer'}}>
-                          <input type="checkbox" checked={d.permissions.includes(s2.id)} onChange={() => toggleSection(person.id, s2.id)} />
-                          {s2.label}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {isOpen && bypassesGating && (
-              <div style={{marginTop:16, borderTop:'1px solid #1e2433', paddingTop:16, fontSize:'0.8rem', color:'#64748b'}}>
-                Super-admins automatically have access to every section.
-              </div>
-            )}
-            {isOpen && (
-              <div style={{marginTop:16, display:'flex', justifyContent:'flex-end'}}>
-                <button style={sa.btnPrimary} disabled={savingId===person.id} onClick={() => save(person.id)}>
-                  {savingId===person.id ? 'Saving…' : 'Save'}
-                </button>
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </>
-  )
-}
-
-function PagePermissions() {
-  const [tab, setTab] = useState('admin')
-
-  return (
-    <div style={sa.content}>
-      <div style={sa.pageHead}><h1 style={sa.pageTitle}>Permissions</h1></div>
-      <div style={{...sa.filterRow, marginBottom:20}}>
-        <button style={{...sa.filterBtn, ...(tab==='admin'?sa.filterActive:{})}} onClick={()=>setTab('admin')}>Admins</button>
-        <button style={{...sa.filterBtn, ...(tab==='mod'?sa.filterActive:{})}} onClick={()=>setTab('mod')}>Moderators</button>
-      </div>
-      {tab==='admin'
-        ? <PermissionsList role="admin" sections={ADMIN_SECTIONS} allowSuperToggle={true}/>
-        : <PermissionsList role="mod" sections={MOD_SECTIONS} allowSuperToggle={false}/>}
-    </div>
-  )
-}
-
-
 // ==================== SHARED LAYOUT ====================
 
 // One admin menu entry with its pages as tabs. Only tabs the admin may see are passed in.
@@ -4904,7 +4780,7 @@ function Layout({ profile, page, setPage, onLogout, children }) {
   const adminNavFiltered = filterAdminNav(profile).map(g => ({ ...g, items: g.items.map(i => ({ ...i, icon: Icon[i.icon] })) }))
   const adminCoreGroups = adminNavFiltered.filter(g => CORE_ADMIN_GROUPS.includes(g.label))
   const adminMoreGroups = adminNavFiltered.filter(g => !CORE_ADMIN_GROUPS.includes(g.label))
-  const adminExtraGroups = profile?.is_super_admin ? [{ label:'Admin', items:[{ id:'permissions', label:'Permissions', icon:Icon.user }] }] : []
+  const adminExtraGroups = []
 
   const NAV_GROUPS = isAdmin
     ? [...adminCoreGroups, ...(showMoreNav ? adminMoreGroups : []), ...adminExtraGroups]
@@ -5488,7 +5364,7 @@ export default function App() {
     } else if (profile.role === 'admin') {
       fetchAdminOverview()
       const firstAllowed = filterAdminNav(profile)?.[0]?.items?.[0]?.id
-      setPage(hasPermission(profile,'dashboard') ? 'dashboard' : (firstAllowed || (profile.is_super_admin ? 'permissions' : 'dashboard')))
+      setPage(hasPermission(profile,'dashboard') ? 'dashboard' : (firstAllowed || 'dashboard'))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id])
@@ -5632,7 +5508,6 @@ export default function App() {
         )}
         {isAdmin && (
           <>
-            {page==='permissions' && profile?.is_super_admin && <PagePermissions/>}
             {page==='adminprofile' && <AdminPageProfile userId={session?.user.id} profile={profile} onRefresh={()=>loadProfile(session.user.id)}/>}
             {(() => {
               const entry = filterAdminNav(profile).flatMap(g => g.items).find(i => i.id === page)
