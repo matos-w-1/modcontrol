@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js'
-import { isTestAccount } from '../../lib/utils'
 import { LUNCH_LIMIT_MIN } from '../../lib/shiftTime'
 import { esc, sendTelegram, once, fmtLisbon, fmtMins, lisbonDate, lisbonWall, SHIFT_START_HOUR, LATE_AFTER_MIN } from '../../lib/telegramServer'
 
@@ -44,7 +43,7 @@ export default async function handler(req, res) {
     })
     console.log('CLOCK IN ERROR:', JSON.stringify(error))
     if (error) return res.status(500).json({ error: error.message })
-    if (!isTestAccount(profile)) {
+    {
       const h = SHIFT_START_HOUR[profile.shift]
       const late = h === undefined ? 0 : Math.round((new Date(now) - lisbonWall(lisbonDate(new Date(now)), h)) / 60000)
       await alert(`🟢 <b>${esc(profile.name)}</b> clocked in · ${esc(profile.shift || '')} · ${fmtLisbon(now)}` + (late > LATE_AFTER_MIN && late < 360 ? `\n⚠️ ${fmtMins(late)} late` : ''))
@@ -78,7 +77,7 @@ export default async function handler(req, res) {
     const { error } = await supabaseAdmin.from('attendance')
       .update({ lunch_end: now, lunch_minutes: lunchMins, status: 'working' }).eq('id', open.id)
     if (error) return res.status(500).json({ error: error.message })
-    if (lunchMins > LUNCH_LIMIT_MIN && !isTestAccount(profile) && await once('lunch:' + open.id)) {
+    if (lunchMins > LUNCH_LIMIT_MIN && await once('lunch:' + open.id)) {
       await alert(`🍽 <b>${esc(profile.name)}</b> took ${fmtMins(lunchMins)} of lunch (limit ${LUNCH_LIMIT_MIN}m)`)
     }
     return res.status(200).json({ ok: true })
@@ -95,7 +94,7 @@ export default async function handler(req, res) {
       lunch_minutes: lunchMins,
     }).eq('id', open.id)
     if (error) return res.status(500).json({ error: error.message })
-    if (!isTestAccount(profile)) {
+    {
       await alert(`🔴 <b>${esc(profile.name)}</b> clocked out · ${fmtLisbon(open.clock_in)}–${fmtLisbon(now)}\nWorked ${fmtMins(workedMins)} · lunch ${lunchMins}m` + (lunchMins > LUNCH_LIMIT_MIN ? ' ⚠️' : ''))
     }
     return res.status(200).json({ ok: true })
