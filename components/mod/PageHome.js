@@ -1,5 +1,5 @@
 import { Icon } from '../../lib/icons'
-import { SHIFT_COLORS, elapsed, fmtDate, fmtTime, isTestAccount, toLocalISO } from '../../lib/utils'
+import { SHIFT_COLORS, elapsed, fmtDate, fmtTime, isTestAccount, notifyAdmins, toLocalISO } from '../../lib/utils'
 import { AnnouncementsWidget } from './AnnouncementsWidget'
 import { ShiftNotesWidget } from './ShiftNotesWidget'
 import { LUNCH_LIMIT_MIN, lunchMinutesSince, shiftEndFor } from '../../lib/shiftTime'
@@ -79,7 +79,8 @@ async function loadOnDuty() {
   async function submitIssue() {
     if (!issueForm.title) return
     setSavingIssue(true)
-    await supabase.from('dev_issues').insert({ user_id:userId, title:issueForm.title, description:issueForm.description, priority:issueForm.priority })
+    const { data: newIssue } = await supabase.from('dev_issues').insert({ user_id:userId, title:issueForm.title, description:issueForm.description, priority:issueForm.priority }).select('id').single()
+    if (newIssue?.id) notifyAdmins('dev_issue', newIssue.id)
     setIssueForm({ title:'', description:'', priority:'normal' })
     setShowIssueForm(false)
     setSavingIssue(false)

@@ -1,9 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
+import { isTestAccount } from '../../lib/utils'
+import { LUNCH_LIMIT_MIN } from '../../lib/shiftTime'
+import { esc, sendTelegram, once, fmtLisbon, fmtMins, lisbonDate, lisbonWall, SHIFT_START_HOUR, LATE_AFTER_MIN } from '../../lib/telegramServer'
 
 const supabaseAdmin = createClient(
   'https://vqoxhaggxgwfktuvtoyw.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZxb3hoYWdneGd3Zmt0dXZ0b3l3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTI5ODExNCwiZXhwIjoyMDk2ODc0MTE0fQ.hq0gA0e7LeqdOUpoycN5865vs0xX3fhlG5HEvs3WDnA'
 )
+
+// A Telegram problem must never break clock in / out
+async function alert(text) { try { await sendTelegram(text) } catch (e) {} }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -15,7 +21,7 @@ export default async function handler(req, res) {
   
   if (!user_id) return res.status(400).json({ error: 'user_id required' })
 
-  const { data: profile, error: profileErr } = await supabaseAdmin.from('profiles').select('id,role,status').eq('id', user_id).single()
+  const { data: profile, error: profileErr } = await supabaseAdmin.from('profiles').select('id,role,status,name,shift').eq('id', user_id).single()
   
   console.log('PROFILE:', JSON.stringify({ profile, profileErr }))
   
@@ -38,6 +44,11 @@ export default async function handler(req, res) {
     })
     console.log('CLOCK IN ERROR:', JSON.stringify(error))
     if (error) return res.status(500).json({ error: error.message })
+    if (!isTestAccount(profile)) {
+      const h = SHIFT_START_HOUR[profile.shift]
+      const late = h === undefined ? 0 : Math.round((new Date(now) - lisbonWall(lisbonDate(new Date(now)), h)) / 60000)
+      await alert(`🟢 <b>${esc(profile.name)}</b> clocked in · ${esc(profile.shift || '')} · ${fmtLisbon(now)}` + (late > LATE_AFTER_MIN && late < 360 ? `\n⚠️ ${fmtMins(late)} late` : ''))
+    }
     return res.status(200).json({ ok: true })
   }
 
@@ -67,6 +78,9 @@ export default async function handler(req, res) {
     const { error } = await supabaseAdmin.from('attendance')
       .update({ lunch_end: now, lunch_minutes: lunchMins, status: 'working' }).eq('id', open.id)
     if (error) return res.status(500).json({ error: error.message })
+    if (lunchMins > LUNCH_LIMIT_MIN && !isTestAccount(profile) && await once('lunch:' + open.id)) {
+      await alert(`🍽 <b>${esc(profile.name)}</b> took ${fmtMins(lunchMins)} of lunch (limit ${LUNCH_LIMIT_MIN}m)`)
+    }
     return res.status(200).json({ ok: true })
   }
 
@@ -81,6 +95,9 @@ export default async function handler(req, res) {
       lunch_minutes: lunchMins,
     }).eq('id', open.id)
     if (error) return res.status(500).json({ error: error.message })
+    if (!isTestAccount(profile)) {
+      await alert(`🔴 <b>${esc(profile.name)}</b> clocked out · ${fmtLisbon(open.clock_in)}–${fmtLisbon(now)}\nWorked ${fmtMins(workedMins)} · lunch ${lunchMins}m` + (lunchMins > LUNCH_LIMIT_MIN ? ' ⚠️' : ''))
+    }
     return res.status(200).json({ ok: true })
   }
 

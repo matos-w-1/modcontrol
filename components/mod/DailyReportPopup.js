@@ -1,4 +1,4 @@
-import { toLocalISO } from '../../lib/utils'
+import { notifyAdmins, toLocalISO } from '../../lib/utils'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
@@ -90,12 +90,14 @@ export function DailyReportPopup({ userId, attendanceId, shift, onClose, onSubmi
         dev_notes:            form.dev_notes,
       }).select('id').single()
       if (error) throw new Error(error.message)
+      if (reportData?.id && (form.has_bug || form.has_exploit)) notifyAdmins('report_flag', reportData.id)
       if (form.applications.filter(a=>a.applicant_name).length > 0) {
-        await supabase.from('applications').insert(
+        const { data: newApps } = await supabase.from('applications').insert(
           form.applications.filter(a=>a.applicant_name).map(a=>({
             ...a, submitted_by: userId, report_id: reportData?.id||null,
           }))
-        )
+        ).select('id')
+        ;(newApps||[]).forEach(a => notifyAdmins('application', a.id))
       }
       try { localStorage.removeItem(draftKey) } catch(e) {}
       onSubmit()

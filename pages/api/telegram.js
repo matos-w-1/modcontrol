@@ -1,91 +1,84 @@
-// Sends alerts to the admins' Telegram chat.
-// Needs two environment variables (set them in Vercel, never in the code):
-//   TELEGRAM_BOT_TOKEN      - token from @BotFather
-//   TELEGRAM_ADMIN_CHAT_ID  - id of the admin group / chat that should receive the alerts
-//
-// The browser can only say "this event happened for this id". The text of the
-// message is built here from the database, so nobody can use this route to
-// send arbitrary messages, and each event is only sent once.
+// Alerts for things that happen in the browser. The browser only says "this event happened for this id";
+// the text is built here from the database, so nobody can use this route to send arbitrary messages,
+// and every event is sent only once.
 import { supabase } from '../../lib/supabase'
+import { SITE, esc, sendTelegram, once, nameOf, fmtDay } from '../../lib/telegramServer'
 
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN
-const CHAT  = process.env.TELEGRAM_ADMIN_CHAT_ID
-const SITE  = process.env.NEXT_PUBLIC_SITE_URL || 'https://staff.terrypoker.pro'
-
-// Best-effort memory of what was already sent (per server instance)
-const sent = globalThis.__tgSent || (globalThis.__tgSent = new Map())
-function firstTime(key, ttlMs) {
-  const now = Date.now()
-  for (const [k, t] of sent) if (now - t > 3600000) sent.delete(k)
-  const last = sent.get(key)
-  if (last && now - last < ttlMs) return false
-  sent.set(key, now)
-  return true
-}
-
-const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-const day = iso => iso ? new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : '—'
-
-async function send(text) {
-  const r = await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: CHAT, text, parse_mode: 'HTML', disable_web_page_preview: true }),
-  })
-  return r.ok
-}
-
-async function nameOf(id) {
-  const { data } = await supabase.from('profiles').select('name,shift').eq('id', id).single()
-  return data || { name: 'Unknown', shift: '' }
-}
+const RECENT_MS = 36 * 3600000     // ignore old ids (stops replays)
+const recent = iso => !iso || Date.now() - new Date(iso).getTime() < RECENT_MS
 
 export default async function handler(req, res) {
-  if (!TOKEN || !CHAT) return res.status(503).json({ error: 'Telegram is not configured yet.' })
+  if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_ADMIN_CHAT_ID) return res.status(503).json({ error: 'Telegram is not configured yet.' })
 
   // Open /api/telegram?test=1 in the browser to check that the bot works
   if (req.method === 'GET') {
     if (!req.query.test) return res.status(405).json({ error: 'Method not allowed' })
-    if (!firstTime('test', 60000)) return res.status(429).json({ error: 'Wait a minute before testing again.' })
-    const ok = await send('✅ <b>RollTwo Staff</b>\nTelegram alerts are working.')
+    if (!(await once('test:' + Math.floor(Date.now() / 60000)))) return res.status(429).json({ error: 'Wait a minute before testing again.' })
+    const ok = await sendTelegram('✅ <b>RollTwo Staff</b>\nTelegram alerts are working.')
     return res.status(ok ? 200 : 502).json({ ok })
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const { event, id } = req.body || {}
   if (!event || !id) return res.status(400).json({ error: 'Missing event or id' })
+  const skip = why => res.status(200).json({ ok: false, skipped: why })
+  const done = async text => { const ok = await sendTelegram(text); return res.status(ok ? 200 : 502).json({ ok }) }
 
   try {
     if (event === 'vacation_request') {
       const { data: v } = await supabase.from('vacation_requests').select('*').eq('id', id).single()
-      if (!v || v.status !== 'pending') return res.status(200).json({ ok: false, skipped: 'not pending' })
-      // Only recent requests (36h also covers a date-only submitted_at column); stops old ids being replayed
-      if (Date.now() - new Date(v.submitted_at).getTime() > 36 * 3600000) return res.status(200).json({ ok: false, skipped: 'too old' })
-      if (!firstTime('vac:' + id, 3600000)) return res.status(200).json({ ok: false, skipped: 'already sent' })
+      if (!v || v.status !== 'pending') return skip('not pending')
+      if (!recent(v.submitted_at)) return skip('too old')
+      if (!(await once('vac:' + id))) return skip('already sent')
       const mod = await nameOf(v.user_id)
       const same = v.start_date === v.end_date
-      const ok = await send(
-        `🌴 <b>New vacation request</b>\n` +
-        `<b>${esc(mod.name)}</b>${mod.shift ? ' · ' + esc(mod.shift) : ''}\n` +
-        `${same ? day(v.start_date) : day(v.start_date) + ' → ' + day(v.end_date)} · ${esc(v.days_requested)} day(s)\n\n` +
-        `Review: ${SITE}/dashboard`
-      )
-      return res.status(ok ? 200 : 502).json({ ok })
+      return done(
+        `🌴 <b>New vacation request</b>\n<b>${esc(mod.name)}</b>${mod.shift ? ' · ' + esc(mod.shift) : ''}\n` +
+        `${same ? fmtDay(v.start_date) : fmtDay(v.start_date) + ' → ' + fmtDay(v.end_date)} · ${esc(v.days_requested)} day(s)\n\nReview: ${SITE}/dashboard`)
     }
 
     if (event === 'swap_pending_admin') {
       const { data: sw } = await supabase.from('shift_swaps').select('*').eq('id', id).single()
-      if (!sw || sw.status !== 'pending_admin') return res.status(200).json({ ok: false, skipped: 'not awaiting admin' })
-      if (!firstTime('swap:' + id, 3600000)) return res.status(200).json({ ok: false, skipped: 'already sent' })
+      if (!sw || sw.status !== 'pending_admin') return skip('not awaiting admin')
+      if (!(await once('swap:' + id))) return skip('already sent')
       const [a, b] = await Promise.all([nameOf(sw.requester_id), nameOf(sw.target_id)])
-      const ok = await send(
-        `🔄 <b>Shift swap awaiting your approval</b>\n` +
-        `<b>${esc(a.name)}</b> gives ${day(sw.swap_date)}\n` +
-        `<b>${esc(b.name)}</b> gives ${day(sw.target_date)}\n` +
-        (sw.notes ? `Note: ${esc(sw.notes)}\n` : '') +
-        `\nReview: ${SITE}/dashboard`
-      )
-      return res.status(ok ? 200 : 502).json({ ok })
+      return done(
+        `🔄 <b>Shift swap awaiting your approval</b>\n<b>${esc(a.name)}</b> gives ${fmtDay(sw.swap_date)}\n<b>${esc(b.name)}</b> gives ${fmtDay(sw.target_date)}\n` +
+        (sw.notes ? `Note: ${esc(sw.notes)}\n` : '') + `\nReview: ${SITE}/dashboard`)
+    }
+
+    if (event === 'application') {
+      const { data: a } = await supabase.from('applications').select('*').eq('id', id).single()
+      if (!a || a.status !== 'pending') return skip('not pending')
+      if (!recent(a.created_at)) return skip('too old')
+      if (!(await once('app:' + id))) return skip('already sent')
+      const by = a.submitted_by ? await nameOf(a.submitted_by) : null
+      return done(
+        `📝 <b>New application</b>${a.type ? ' (' + esc(a.type) + ')' : ''}\n<b>${esc(a.applicant_name)}</b>` +
+        (by ? `\nSubmitted by ${esc(by.name)}` : '') + `\n\nReview: ${SITE}/dashboard`)
+    }
+
+    if (event === 'dev_issue') {
+      const { data: d } = await supabase.from('dev_issues').select('*').eq('id', id).single()
+      if (!d) return skip('not found')
+      if (!recent(d.created_at)) return skip('too old')
+      if (!(await once('issue:' + id))) return skip('already sent')
+      const by = await nameOf(d.user_id)
+      return done(
+        `🛠 <b>New dev issue</b>${d.priority && d.priority !== 'normal' ? ' · ' + esc(String(d.priority).toUpperCase()) : ''}\n<b>${esc(d.title)}</b>\nFrom ${esc(by.name)}` +
+        (d.description ? `\n${esc(String(d.description).slice(0, 300))}` : '') + `\n\nReview: ${SITE}/dashboard`)
+    }
+
+    if (event === 'report_flag') {
+      const { data: r } = await supabase.from('daily_reports').select('*').eq('id', id).single()
+      if (!r || !(r.has_bug || r.has_exploit)) return skip('no flag')
+      if (!recent(r.created_at || (r.report_date ? r.report_date + 'T23:59:00Z' : null))) return skip('too old')
+      if (!(await once('rep:' + id))) return skip('already sent')
+      const by = await nameOf(r.user_id)
+      const flags = [r.has_exploit ? 'EXPLOIT' : null, r.has_bug ? 'BUG' : null].filter(Boolean).join(' + ')
+      return done(
+        `🚨 <b>Daily report flagged: ${flags}</b>\n<b>${esc(by.name)}</b>${r.shift ? ' · ' + esc(r.shift) : ''}\n` +
+        (r.dev_notes ? `${esc(String(r.dev_notes).slice(0, 400))}\n` : '') + `\nReview: ${SITE}/dashboard`)
     }
 
     return res.status(400).json({ error: 'Unknown event' })
