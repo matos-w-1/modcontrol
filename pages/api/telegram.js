@@ -59,7 +59,8 @@ export default async function handler(req, res) {
     if (event === 'vacation_request') {
       const { data: v } = await supabase.from('vacation_requests').select('*').eq('id', id).single()
       if (!v || v.status !== 'pending') return res.status(200).json({ ok: false, skipped: 'not pending' })
-      if (Date.now() - new Date(v.submitted_at).getTime() > 15 * 60000) return res.status(200).json({ ok: false, skipped: 'too old' })
+      // Only recent requests (36h also covers a date-only submitted_at column); stops old ids being replayed
+      if (Date.now() - new Date(v.submitted_at).getTime() > 36 * 3600000) return res.status(200).json({ ok: false, skipped: 'too old' })
       if (!firstTime('vac:' + id, 3600000)) return res.status(200).json({ ok: false, skipped: 'already sent' })
       const mod = await nameOf(v.user_id)
       const same = v.start_date === v.end_date

@@ -4847,6 +4847,28 @@ function PagePermissions() {
 
 // ==================== SHARED LAYOUT ====================
 
+// One admin menu entry with its pages as tabs. Only tabs the admin may see are passed in.
+function AdminHub({ tabs, tab, setTab, render }) {
+  const active = tabs.some(t => t.id === tab) ? tab : tabs[0]?.id
+  return (
+    <div>
+      {tabs.length > 1 && (
+        <div style={{maxWidth:1100, margin:'0 auto', padding:'22px 36px 0'}}>
+          <div style={{display:'flex', gap:4, borderBottom:'1px solid #1e2433', flexWrap:'wrap'}}>
+            {tabs.map(t => (
+              <button key={t.id} onClick={()=>setTab(t.id)}
+                style={{background:'none', border:'none', borderBottom:`2px solid ${t.id===active?'#3b82f6':'transparent'}`, marginBottom:-1, padding:'10px 16px', cursor:'pointer', fontSize:'0.85rem', fontWeight:t.id===active?700:500, color:t.id===active?'#f1f5f9':'#64748b', fontFamily:'inherit'}}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {render(active)}
+    </div>
+  )
+}
+
 function Layout({ profile, page, setPage, onLogout, children }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showInbox, setShowInbox]       = useState(false)
@@ -4877,7 +4899,7 @@ function Layout({ profile, page, setPage, onLogout, children }) {
     })
   }
 
-  const CORE_ADMIN_GROUPS = ['Overview', 'Management']
+  const CORE_ADMIN_GROUPS = ['Menu']
 
   const adminNavFiltered = filterAdminNav(profile).map(g => ({ ...g, items: g.items.map(i => ({ ...i, icon: Icon[i.icon] })) }))
   const adminCoreGroups = adminNavFiltered.filter(g => CORE_ADMIN_GROUPS.includes(g.label))
@@ -5427,6 +5449,8 @@ export default function App() {
   const [profile, setProfile]               = useState(null)
   const [attendance, setAttendance]         = useState(null)
   const [page, setPage]                     = useState('home')
+  const [adminTab, setAdminTab]               = useState(null)   // active tab inside an admin menu entry
+  const goPage = (id) => { setAdminTab(null); setPage(id) }
   const [loading, setLoading]               = useState(true)
   const [busy, setBusy]                     = useState(false)
   const [error, setError]                   = useState(null)
@@ -5551,6 +5575,29 @@ export default function App() {
   const isAdmin = profile?.role === 'admin'
   const canSee = (sectionId) => hasPermission(profile, sectionId)
 
+  // The page shown for each admin tab (tab ids are the permission ids)
+  function renderAdminTab(id) {
+    switch (id) {
+      case 'dashboard':        return adminLoading ? <div style={{padding:40,color:'#4a5568'}}>Loading…</div> : <PageDashboard onDuty={onDuty} weeklyHours={weeklyHours} upcomingLeave={upcomingLeave} pendingCount={pendingCount} adminId={profile?.id}/>
+      case 'approvals':        return <PageApprovals onCountChange={setPendingCount} adminId={profile?.id}/>
+      case 'swapmanager':      return <PageSwapManager adminId={profile?.id}/>
+      case 'moderators':       return <PageModerators adminId={profile?.id}/>
+      case 'applications':     return <AdminPageApplications adminId={profile?.id}/>
+      case 'calendar':         return <AdminPageCalendar/>
+      case 'shifts':           return <PageShifts/>
+      case 'vacationcal':      return <PageVacationCalendar/>
+      case 'hours':            return <PageHours/>
+      case 'attendance':       return <AdminPageAttendance/>
+      case 'attendancereport': return <PageAttendanceReport/>
+      case 'dailyreports':     return <PageDailyReports/>
+      case 'reports':          return <PageReports/>
+      case 'devreports':       return <AdminPageDevReports/>
+      case 'announcements':    return <PageAnnouncements adminId={profile?.id}/>
+      case 'agenda':           return <AdminPageMeetingAgenda adminId={profile?.id}/>
+      default:                 return null
+    }
+  }
+
   return (
     <>
       <style>{`*{box-sizing:border-box}body{margin:0}input,select,textarea{color-scheme:dark}html,body{height:100%}#__next{height:100%}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}`}</style>
@@ -5565,7 +5612,7 @@ export default function App() {
       )}
       {!isAdmin && <LunchReminder attendance={attendance} onEndLunch={()=>handleAction('lunch_end')}/>}
       {!isAdmin && <ShiftEndReminder attendance={attendance} shift={profile?.shift} hidden={showReportPopup} onClockOut={()=>handleAction('clock_out')}/>}
-      <Layout profile={profile} page={page} setPage={setPage} onLogout={handleLogout}>
+      <Layout profile={profile} page={page} setPage={goPage} onLogout={handleLogout}>
         {!isAdmin && (
           <>
             {page==='home'                        && <PageHome profile={profile} attendance={attendance} onAction={handleAction} busy={busy} error={error} userId={session?.user.id} onNavigate={setPage}/>}
@@ -5587,22 +5634,11 @@ export default function App() {
           <>
             {page==='permissions' && profile?.is_super_admin && <PagePermissions/>}
             {page==='adminprofile' && <AdminPageProfile userId={session?.user.id} profile={profile} onRefresh={()=>loadProfile(session.user.id)}/>}
-            {page==='dashboard'       && canSee('dashboard')       && (adminLoading ? <div style={{padding:40,color:'#4a5568'}}>Loading…</div> : <PageDashboard onDuty={onDuty} weeklyHours={weeklyHours} upcomingLeave={upcomingLeave} pendingCount={pendingCount} adminId={profile?.id}/>)}
-            {page==='approvals'       && canSee('approvals')       && <PageApprovals onCountChange={setPendingCount} adminId={profile?.id}/>}
-            {page==='moderators'      && canSee('moderators')      && <PageModerators adminId={profile?.id}/>}
-            {page==='applications'    && canSee('applications')    && <AdminPageApplications adminId={profile?.id}/>}
-            {page==='attendance'      && canSee('attendance')      && <AdminPageAttendance/>}
-            {page==='attendancereport'&& canSee('attendancereport')&& <PageAttendanceReport/>}
-            {page==='shifts'          && canSee('shifts')          && <PageShifts/>}
-            {page==='calendar'        && canSee('calendar')        && <AdminPageCalendar/>}
-            {page==='reports'         && canSee('reports')         && <PageReports/>}
-            {page==='dailyreports'    && canSee('dailyreports')    && <PageDailyReports/>}
-            {page==='devreports'      && canSee('devreports')      && <AdminPageDevReports/>}
-            {page==='hours'           && canSee('hours')           && <PageHours/>}
-            {page==='announcements'   && canSee('announcements')   && <PageAnnouncements adminId={profile?.id}/>}
-            {page==='swapmanager'     && canSee('swapmanager')     && <PageSwapManager adminId={profile?.id}/>}
-            {page==='vacationcal'     && canSee('vacationcal')     && <PageVacationCalendar/>}
-            {page==='agenda'          && canSee('agenda')          && <AdminPageMeetingAgenda adminId={profile?.id}/>}
+            {(() => {
+              const entry = filterAdminNav(profile).flatMap(g => g.items).find(i => i.id === page)
+              if (!entry) return null
+              return <AdminHub tabs={entry.tabs} tab={adminTab} setTab={setAdminTab} render={renderAdminTab}/>
+            })()}
           </>
         )}
       </Layout>
