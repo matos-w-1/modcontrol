@@ -795,7 +795,7 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
                         return (
                           <td key={i} style={{...s.td, textAlign:'center', padding:'6px 2px', background: i===0?'#3b82f608':undefined}}>
                             {isWorking
-                              ? <div style={{width:6, height:6, borderRadius:'50%', background:SHIFT_COLORS[mod.shift]||'#64748b', margin:'0 auto'}}/>
+                              ? <div style={{width:6, height:6, borderRadius:'50%', background:'#64748b', margin:'0 auto'}}/>
                               : <div style={{fontSize:'0.62rem', fontWeight:700, color:status.color, background:status.color+'22', padding:'3px 4px', borderRadius:4, textTransform:'uppercase'}}>{status.label}</div>
                             }
                           </td>
@@ -816,8 +816,8 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
             </div>
           ))}
           <div style={{display:'flex',alignItems:'center',gap:5}}>
-            {Object.entries(SHIFT_COLORS).map(([sh,c])=><div key={sh} style={{width:6,height:6,borderRadius:'50%',background:c}}/>)}
-            <span style={{fontSize:'0.7rem',color:'#64748b'}}>Working (colored by shift)</span>
+            <div style={{width:6,height:6,borderRadius:'50%',background:'#64748b'}}/>
+            <span style={{fontSize:'0.7rem',color:'#64748b'}}>Working</span>
           </div>
         </div>
       </div>
