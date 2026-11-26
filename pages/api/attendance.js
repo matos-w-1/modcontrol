@@ -8,7 +8,7 @@ const supabaseAdmin = createClient(
 )
 
 // A Telegram problem must never break clock in / out
-async function alert(text) { try { await sendTelegram(text) } catch (e) {} }
+async function alert(text) { try { await sendTelegram(text, 'attendance') } catch (e) {} }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })

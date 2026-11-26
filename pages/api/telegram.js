@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   const { event, id } = req.body || {}
   if (!event || !id) return res.status(400).json({ error: 'Missing event or id' })
   const skip = why => res.status(200).json({ ok: false, skipped: why })
-  const done = async text => { const ok = await sendTelegram(text); return res.status(ok ? 200 : 502).json({ ok }) }
+  const done = async (text, topic) => { const ok = await sendTelegram(text, topic); return res.status(ok ? 200 : 502).json({ ok }) }
 
   try {
     if (event === 'vacation_request') {
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
       const same = v.start_date === v.end_date
       return done(
         `🌴 <b>New vacation request</b>\n<b>${esc(mod.name)}</b>${mod.shift ? ' · ' + esc(mod.shift) : ''}\n` +
-        `${same ? fmtDay(v.start_date) : fmtDay(v.start_date) + ' → ' + fmtDay(v.end_date)} · ${esc(v.days_requested)} day(s)\n\nReview: ${SITE}/dashboard`)
+        `${same ? fmtDay(v.start_date) : fmtDay(v.start_date) + ' → ' + fmtDay(v.end_date)} · ${esc(v.days_requested)} day(s)\n\nReview: ${SITE}/dashboard`, 'requests')
     }
 
     if (event === 'swap_pending_admin') {
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
       const [a, b] = await Promise.all([nameOf(sw.requester_id), nameOf(sw.target_id)])
       return done(
         `🔄 <b>Shift swap awaiting your approval</b>\n<b>${esc(a.name)}</b> gives ${fmtDay(sw.swap_date)}\n<b>${esc(b.name)}</b> gives ${fmtDay(sw.target_date)}\n` +
-        (sw.notes ? `Note: ${esc(sw.notes)}\n` : '') + `\nReview: ${SITE}/dashboard`)
+        (sw.notes ? `Note: ${esc(sw.notes)}\n` : '') + `\nReview: ${SITE}/dashboard`, 'requests')
     }
 
     if (event === 'application') {
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
       const by = a.submitted_by ? await nameOf(a.submitted_by) : null
       return done(
         `📝 <b>New application</b>${a.type ? ' (' + esc(a.type) + ')' : ''}\n<b>${esc(a.applicant_name)}</b>` +
-        (by ? `\nSubmitted by ${esc(by.name)}` : '') + `\n\nReview: ${SITE}/dashboard`)
+        (by ? `\nSubmitted by ${esc(by.name)}` : '') + `\n\nReview: ${SITE}/dashboard`, 'requests')
     }
 
     if (event === 'dev_issue') {
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
       const by = await nameOf(d.user_id)
       return done(
         `🛠 <b>New dev issue</b>${d.priority && d.priority !== 'normal' ? ' · ' + esc(String(d.priority).toUpperCase()) : ''}\n<b>${esc(d.title)}</b>\nFrom ${esc(by.name)}` +
-        (d.description ? `\n${esc(String(d.description).slice(0, 300))}` : '') + `\n\nReview: ${SITE}/dashboard`)
+        (d.description ? `\n${esc(String(d.description).slice(0, 300))}` : '') + `\n\nReview: ${SITE}/dashboard`, 'reports')
     }
 
     if (event === 'report_flag') {
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
       const flags = [r.has_exploit ? 'EXPLOIT' : null, r.has_bug ? 'BUG' : null].filter(Boolean).join(' + ')
       return done(
         `🚨 <b>Daily report flagged: ${flags}</b>\n<b>${esc(by.name)}</b>${r.shift ? ' · ' + esc(r.shift) : ''}\n` +
-        (r.dev_notes ? `${esc(String(r.dev_notes).slice(0, 400))}\n` : '') + `\nReview: ${SITE}/dashboard`)
+        (r.dev_notes ? `${esc(String(r.dev_notes).slice(0, 400))}\n` : '') + `\nReview: ${SITE}/dashboard`, 'reports')
     }
 
     return res.status(400).json({ error: 'Unknown event' })

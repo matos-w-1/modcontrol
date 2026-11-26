@@ -44,7 +44,7 @@ async function checkNoClockIn(now, mods) {
     const clocked = (att || []).some(a => a.user_id === mod.id && new Date(a.clock_in) >= new Date(exp.start.getTime() - 120 * MIN))
     if (clocked) continue
     if (!(await once(`noin:${mod.id}:${today}`))) continue
-    await sendTelegram(`⏰ <b>${esc(mod.name)}</b> has not clocked in\n${esc(exp.shift)} started at ${fmtLisbon(exp.start)} (${fmtMins(late)} ago)`)
+    await sendTelegram(`⏰ <b>${esc(mod.name)}</b> has not clocked in\n${esc(exp.shift)} started at ${fmtLisbon(exp.start)} (${fmtMins(late)} ago)`, 'attendance')
     sent++
   }
   return sent
@@ -60,7 +60,7 @@ async function checkOpenSessions(now, mods) {
     if (a.status === 'lunch' && a.lunch_start && !a.lunch_end) {
       const mins = (now - new Date(a.lunch_start)) / MIN
       if (mins >= LUNCH_LIMIT_MIN && await once('lunch:' + a.id)) {
-        await sendTelegram(`🍽 <b>${esc(mod.name)}</b> is over the lunch limit\nOn lunch for ${fmtMins(mins)} (limit ${LUNCH_LIMIT_MIN}m), since ${fmtLisbon(a.lunch_start)}`)
+        await sendTelegram(`🍽 <b>${esc(mod.name)}</b> is over the lunch limit\nOn lunch for ${fmtMins(mins)} (limit ${LUNCH_LIMIT_MIN}m), since ${fmtLisbon(a.lunch_start)}`, 'attendance')
         sent++
       }
     }
@@ -69,7 +69,7 @@ async function checkOpenSessions(now, mods) {
     if (end) {
       const over = (now - end) / MIN
       if (over >= NO_CLOCK_OUT_AFTER_MIN && await once('noout:' + a.id)) {
-        await sendTelegram(`🕒 <b>${esc(mod.name)}</b> has not clocked out\n${esc(mod.shift)} ended at ${fmtLisbon(end)} (${fmtMins(over)} ago). Clocked in at ${fmtLisbon(a.clock_in)}.`)
+        await sendTelegram(`🕒 <b>${esc(mod.name)}</b> has not clocked out\n${esc(mod.shift)} ended at ${fmtLisbon(end)} (${fmtMins(over)} ago). Clocked in at ${fmtLisbon(a.clock_in)}.`, 'attendance')
         sent++
       }
     }
@@ -114,7 +114,7 @@ async function dailySummary(now, mods) {
   if (noShows.length) text += `\n\n❌ <b>Did not show up</b>: ${noShows.map(esc).join(', ')}`
   const pend = [vacPending && `${vacPending} vacation`, swapPending && `${swapPending} swap`, appPending && `${appPending} application`].filter(Boolean)
   text += `\n\n${pend.length ? '📥 Pending: ' + pend.join(', ') : '📥 Nothing pending'}\n${SITE}/dashboard`
-  await sendTelegram(text)
+  await sendTelegram(text, 'reports')
   return 1
 }
 
