@@ -86,7 +86,7 @@ export function AddSwapPanel({ mods, onDone, onCancel }) {
         <span style={sa.cardTitle}>Add a shift swap</span>
         <button style={sa.filterBtn} onClick={onCancel}>Cancel</button>
       </div>
-      <p style={{fontSize:'0.78rem', color:'#64748b', marginTop:0}}>Registered as already approved; past days are allowed. Click the day the first moderator gives away, then click the day another moderator gives away. Each one works the other's day.</p>
+      <p style={{fontSize:'0.78rem', color:'#64748b', marginTop:0}}>Registered as already approved; past days are allowed. Click the day the first moderator gives away, then the day another moderator gives away. Days off (OFF) can be swapped too: whoever takes someone's day off works it, and the other works theirs. Vacation days are blocked.</p>
       {error && <div style={sa.errorBox}>{error}</div>}
       <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:10}}>
         <button style={sa.filterBtn} onClick={()=>shiftMonth(-1)}>← Prev</button>
@@ -117,9 +117,9 @@ export function AddSwapPanel({ mods, onDone, onCancel }) {
                   const selA = aId === m.id && aDate === iso, selB = bId === m.id && bDate === iso
                   const sel = selA || selB
                   return (
-                    <td key={iso} onClick={bl ? undefined : () => pick(m, d)}
+                    <td key={iso} onClick={bl === 'VAC' ? undefined : () => pick(m, d)}
                         title={`${m.name} · ${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}${bl ? ' · '+bl : ''}`}
-                        style={{...cellBase, cursor: bl ? 'not-allowed' : 'pointer',
+                        style={{...cellBase, cursor: bl === 'VAC' ? 'not-allowed' : 'pointer',
                           background: sel ? '#3b82f6' : bl === 'VAC' ? '#a855f718' : bl === 'OFF' ? '#be123c22' : 'transparent',
                           color: sel ? '#fff' : bl === 'VAC' ? '#a855f7' : bl === 'OFF' ? '#be123c' : '#334155', fontWeight:700}}>
                       {sel ? (selA ? 'A' : 'B') : bl || '·'}
