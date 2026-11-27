@@ -19,7 +19,7 @@ export function PageShifts() {
 
 async function load() {
   const [{ data }, { data:overridesData }] = await Promise.all([
-    supabase.from('profiles').select('id,name,shift,status,days_off,mod_group,rotating_days_off,rotating_days_off_alt').eq('role','mod').neq('status','left').order('name'),
+    supabase.from('profiles').select('id,name,avatar_url,shift,status,days_off,mod_group,rotating_days_off,rotating_days_off_alt').eq('role','mod').neq('status','left').order('name'),
     supabase.from('shift_overrides').select('*'),
   ])
   const overridesByMod = {}
