@@ -1,5 +1,5 @@
 import { Icon } from '../../lib/icons'
-import { SHIFT_COLORS, elapsed, fmtDate, fmtTime, isTestAccount, notifyAdmins, toLocalISO } from '../../lib/utils'
+import { SHIFT_COLORS, elapsed, fmtDate, fmtTime, isTestAccount, notifyAdmins, toLocalISO, swapRole } from '../../lib/utils'
 import { AnnouncementsWidget } from './AnnouncementsWidget'
 import { ShiftNotesWidget } from './ShiftNotesWidget'
 import { LUNCH_LIMIT_MIN, lunchMinutesSince, shiftEndFor } from '../../lib/shiftTime'
@@ -126,10 +126,11 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
     let daysOff = mod.days_off||[]
     if (mod.rotating_days_off) daysOff = isEvenMonth ? (mod.days_off||[]) : (mod.rotating_days_off_alt||[])
     if (calVacs.some(v=>v.user_id===mod.id&&d>=v.start_date&&d<=v.end_date)) return { label:'VAC', color:'#a855f7' }
-    if (calSwaps.some(sw=>(sw.swap_date===d||sw.target_date===d)&&(sw.requester_id===mod.id||sw.target_id===mod.id))) return { label:'SWAP', color:'#cbd5e1' }
-    if (daysOff.includes(dayName)) return { label:'OFF', color:'#be123c' }
+    const swap = swapRole(calSwaps, mod.id, d)      // 'out' = gave the day away, 'in' = works an extra day
+    if (swap === 'out') return { label:'SWAP', color:'#cbd5e1' }
+    if (swap !== 'in' && daysOff.includes(dayName)) return { label:'OFF', color:'#be123c' }
     const color = SHIFT_COLOR[mod.shift]||'#94a3b8'
-    return { label:'●', color }
+    return { label:'●', color, swapIn: swap==='in' }
   }
 
   const DAYS_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -322,7 +323,9 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
                         return (
                           <td key={i} style={{...s.td, textAlign:'center', padding:'6px 2px', background: i===0?'#3b82f608':undefined}}>
                             {isWorking
-                              ? <div style={{width:6, height:6, borderRadius:'50%', background:'#64748b', margin:'0 auto'}}/>
+                              ? (status.swapIn
+                                ? <div title="Working an extra day (swap)" style={{width:9, height:9, borderRadius:'50%', border:'2px solid #cbd5e1', boxSizing:'border-box', margin:'0 auto'}}/>
+                                : <div style={{width:6, height:6, borderRadius:'50%', background:'#64748b', margin:'0 auto'}}/>)
                               : <div style={{fontSize:'0.62rem', fontWeight:700, color:status.color, background:status.color+'22', padding:'3px 4px', borderRadius:4, textTransform:'uppercase'}}>{status.label}</div>
                             }
                           </td>
@@ -336,12 +339,16 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
           </table>
         </div>
         <div style={{display:'flex', gap:16, marginTop:12, flexWrap:'wrap'}}>
-          {[['#a855f7','Vacation (VAC)'],['#be123c','Day off (OFF)'],['#cbd5e1','Shift swap (SWAP)']].map(([color,label])=>(
+          {[['#a855f7','Vacation (VAC)'],['#be123c','Day off (OFF)'],['#cbd5e1','Swapped away (SWAP)']].map(([color,label])=>(
             <div key={label} style={{display:'flex',alignItems:'center',gap:5}}>
               <div style={{width:8,height:8,borderRadius:2,background:color}}/>
               <span style={{fontSize:'0.7rem',color:'#64748b'}}>{label}</span>
             </div>
           ))}
+          <div style={{display:'flex',alignItems:'center',gap:5}}>
+            <div style={{width:9,height:9,borderRadius:'50%',border:'2px solid #cbd5e1',boxSizing:'border-box'}}/>
+            <span style={{fontSize:'0.7rem',color:'#64748b'}}>Extra day (swap)</span>
+          </div>
           <div style={{display:'flex',alignItems:'center',gap:5}}>
             <div style={{width:6,height:6,borderRadius:'50%',background:'#64748b'}}/>
             <span style={{fontSize:'0.7rem',color:'#64748b'}}>Working</span>

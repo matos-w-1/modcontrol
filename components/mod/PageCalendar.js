@@ -1,4 +1,4 @@
-import { SHIFT_COLORS, fmtHourShort, isTestAccount, toLocalISO } from '../../lib/utils'
+import { SHIFT_COLORS, fmtHourShort, isTestAccount, toLocalISO, swapRole } from '../../lib/utils'
 import { s } from '../../lib/styles'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -58,11 +58,6 @@ export function PageCalendar() {
     return vacations.some(v => v.user_id===modId && d>=v.start_date && d<=v.end_date)
   }
 
-  function hasSwap(modId, date) {
-    const d = toLocalISO(date)
-    return swaps.some(sw => (sw.swap_date===d||sw.target_date===d) && (sw.requester_id===modId||sw.target_id===modId))
-  }
-
   function getCell(mod, date) {
     const isBirthday = birthdays.some(b => {
       if (!b.birthday || b.id !== mod.id) return false
@@ -71,8 +66,9 @@ export function PageCalendar() {
     })
     if (isBirthday)                  return { label:'🎂', color:'#f472b6', bg:'#f472b618' }
     if (isOnVacation(mod.id, date))  return { label:'VAC', color:'#a855f7', bg:'#a855f718' }
-    if (hasSwap(mod.id, date))       return { label:'SWAP', color:'#cbd5e1', bg:'#cbd5e118' }
-    if (isOff(mod, date))            return { label:'OFF', color:'#be123c', bg:'#be123c33' }
+    const swap = swapRole(swaps, mod.id, toLocalISO(date))      // 'out' = gave the day away, 'in' = works an extra day
+    if (swap === 'out')              return { label:'SWAP', color:'#cbd5e1', bg:'#cbd5e118' }
+    if (swap !== 'in' && isOff(mod, date)) return { label:'OFF', color:'#be123c', bg:'#be123c33' }
 
     // Check override for this day
     const dayName = date.toLocaleDateString('en-GB',{weekday:'long'})
@@ -82,11 +78,11 @@ export function PageCalendar() {
       const label = override.start_time && override.end_time
         ? `${fmtHourShort(override.start_time)}-${fmtHourShort(override.end_time)}`
         : override.shift?.split(' ')[0]||'—'
-      return { label, color, bg: color+'15' }
+      return { label, color, bg: color+'15', swapIn: swap==='in' }
     }
 
     const color = SHIFT_COLOR[mod.shift] || '#94a3b8'
-    return { label: mod.shift?.split(' ')[0]||'—', color, bg: color+'15' }
+    return { label: mod.shift?.split(' ')[0]||'—', color, bg: color+'15', swapIn: swap==='in' }
   }
 
   const days  = getDays()
@@ -135,9 +131,11 @@ function ShiftCalendar({ title, accent, rows }) {
                   const isWeekend = d.getDay()===0||d.getDay()===6
                   const isWorking = cell.label!=='OFF'&&cell.label!=='VAC'&&cell.label!=='SWAP'&&cell.label!=='🎂'&&!cell.label?.includes('-')
                   return (
-                    <td key={i} title={`${mod.name} · ${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})} · ${isWorking?'Working':cell.label}`} style={{padding:'6px 1px', textAlign:'center', borderBottom:'1px solid #0f1117', borderLeft:d.getDay()===1?'1px solid #1e2433':'none', background:isToday?'#1e2a44':isWeekend?'#0d1018':'transparent'}}>
+                    <td key={i} title={`${mod.name} · ${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})} · ${isWorking?(cell.swapIn?'Working an extra day (swap)':'Working'):cell.label}`} style={{padding:'6px 1px', textAlign:'center', borderBottom:'1px solid #0f1117', borderLeft:d.getDay()===1?'1px solid #1e2433':'none', background:isToday?'#1e2a44':isWeekend?'#0d1018':'transparent'}}>
                       {isWorking
-                        ? <div style={{width:5, height:5, borderRadius:'50%', background:'#334155', margin:'0 auto'}}/>
+                        ? (cell.swapIn
+                          ? <div style={{width:8, height:8, borderRadius:'50%', border:'2px solid #cbd5e1', boxSizing:'border-box', margin:'0 auto'}}/>
+                          : <div style={{width:5, height:5, borderRadius:'50%', background:'#334155', margin:'0 auto'}}/>)
                         : <div style={{fontSize:'0.56rem', fontWeight:700, color:cell.color, background:cell.color+'2e', padding:'3px 0', borderRadius:4, textTransform:'uppercase'}}>{cell.label}</div>
                       }
                     </td>
@@ -168,7 +166,8 @@ function ShiftCalendar({ title, accent, rows }) {
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:5,height:5,borderRadius:'50%',background:'#334155'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Working</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#be123c'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Day Off</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#a855f7'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Vacation</span></div>
-        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#cbd5e1'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swap</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#cbd5e1'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Swapped away</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:'50%',border:'2px solid #cbd5e1',boxSizing:'border-box'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Extra day (swap)</span></div>
       </div>
       <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:16}}>🇬🇧 English Moderators</div>
       <ShiftCalendar title="Night Shift · 12 AM–9 AM Lisbon time"     accent={SHIFT_COLORS['Night Shift']} rows={nightMods}/>
