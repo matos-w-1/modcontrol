@@ -75,7 +75,7 @@ export function AdminPageCalendar() {
       // After a swap the real situation is shown: the day given away is a day off, the day taken is a working day
       return swap === 'out'
         ? { label:'OFF',  color:'#be123c', bg:'#be123c33', swapTag:'out', swapWith }
-        : { label:'WORK', color:'#cbd5e1', bg:'#cbd5e118', swapTag:'in',  swapWith }
+        : { label: mod.shift?.split(' ')[0]||'—', color:SHIFT_COLOR[mod.shift]||'#94a3b8', bg:'#ffffff08', swapTag:'in', swapWith }
     }
     if (isOff(mod, date))            return { label:'OFF', color:'#be123c', bg:'#be123c33' }
     const dayName = date.toLocaleDateString('en-GB',{weekday:'long'})
@@ -136,8 +136,8 @@ export function AdminPageCalendar() {
                     return (
                       <td key={i} title={`${mod.name} · ${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})} · ${cell.swapTag==='out'?`Swap with ${cell.swapWith}: gets this day off`:cell.swapTag==='in'?`Swap with ${cell.swapWith}: works this day`:isWorking?'Working':cell.label}`} style={{padding:'6px 1px', textAlign:'center', borderBottom:'1px solid #0f1117', borderLeft:d.getDay()===1?'1px solid #1e2433':'none', background:isToday?'#1e2a44':isWeekend?'#0d1018':'transparent'}}>
                       {isWorking
-                        ? <div style={{width:5, height:5, borderRadius:'50%', background:'#334155', margin:'0 auto'}}/>
-                        : <div style={{fontSize:'0.56rem', fontWeight:700, color:cell.color, background:cell.color+'2e', padding:'3px 0', borderRadius:4, textTransform:'uppercase', ...(cell.swapTag?{boxShadow:'inset 0 0 0 1.5px #cbd5e1'}:{})}}>{cell.label}</div>
+                        ? <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:1}}><div style={{width:5, height:5, borderRadius:'50%', background:'#334155'}}/>{cell.swapTag && <span style={{fontSize:'0.62rem', color:'#cbd5e1', lineHeight:1}}>⇄</span>}</div>
+                        : <div style={{fontSize:'0.56rem', fontWeight:700, color:cell.color, background:cell.color+'2e', padding:'3px 0', borderRadius:4, textTransform:'uppercase', }}>{cell.label}{cell.swapTag && <span style={{marginLeft:2, color:'#cbd5e1'}}>⇄</span>}</div>
                       }
                     </td>
                     )
@@ -167,7 +167,7 @@ export function AdminPageCalendar() {
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:5,height:5,borderRadius:'50%',background:'#334155'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Working</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#be123c'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Day Off</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#a855f7'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Vacation</span></div>
-        <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:10,height:10,borderRadius:2,background:'#be123c55',boxShadow:'inset 0 0 0 1.5px #cbd5e1'}}/><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Silver border = changed by a swap (OFF = day off gained, WORK = day taken · hover for partner)</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:'#cbd5e1',fontSize:'0.8rem'}}>⇄</span><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>⇄ Day changed by a swap (hover for who with)</span></div>
         <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:'0.72rem'}}>🎂</span><span style={{fontSize:'0.72rem',color:'#94a3b8'}}>Birthday</span></div>
       </div>
       <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:16}}>🇬🇧 English Tickets</div>

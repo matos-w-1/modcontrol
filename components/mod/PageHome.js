@@ -133,7 +133,7 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
       // After a swap the real situation is shown: the day given away is a day off, the day taken is a working day
       return swap === 'out'
         ? { label:'OFF',  color:'#be123c', swapTag:'out', swapWith }
-        : { label:'WORK', color:'#cbd5e1', swapTag:'in',  swapWith }
+        : { label:'●', color:SHIFT_COLOR[mod.shift]||'#94a3b8', swapTag:'in', swapWith }
     }
     if (daysOff.includes(dayName)) return { label:'OFF', color:'#be123c' }
     const color = SHIFT_COLOR[mod.shift]||'#94a3b8'
@@ -330,8 +330,8 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
                         return (
                           <td key={i} style={{...s.td, textAlign:'center', padding:'6px 2px', background: i===0?'#3b82f608':undefined}}>
                             {isWorking
-                              ? <div style={{width:6, height:6, borderRadius:'50%', background:'#64748b', margin:'0 auto'}}/>
-                              : <div style={{fontSize:'0.62rem', fontWeight:700, color:status.color, background:status.color+'22', padding:'3px 4px', borderRadius:4, textTransform:'uppercase', ...(status.swapTag?{boxShadow:'inset 0 0 0 1.5px #cbd5e1'}:{})}} title={status.swapTag?(status.swapTag==='out'?`Swap with ${status.swapWith}: gets this day off`:`Swap with ${status.swapWith}: works this day`):undefined}>{status.label}</div>
+                              ? <div title={status.swapTag?`Swap with ${status.swapWith}: works this day`:undefined} style={{display:'flex', alignItems:'center', justifyContent:'center', gap:1}}><div style={{width:6, height:6, borderRadius:'50%', background:'#64748b'}}/>{status.swapTag && <span style={{fontSize:'0.65rem', color:'#cbd5e1', lineHeight:1}}>⇄</span>}</div>
+                              : <div style={{fontSize:'0.62rem', fontWeight:700, color:status.color, background:status.color+'22', padding:'3px 4px', borderRadius:4, textTransform:'uppercase', }} title={status.swapTag?(status.swapTag==='out'?`Swap with ${status.swapWith}: gets this day off`:`Swap with ${status.swapWith}: works this day`):undefined}>{status.label}{status.swapTag && <span style={{marginLeft:2, color:'#cbd5e1'}}>⇄</span>}</div>
                             }
                           </td>
                         )
@@ -351,8 +351,8 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
             </div>
           ))}
           <div style={{display:'flex',alignItems:'center',gap:5}}>
-            <div style={{width:8,height:8,borderRadius:2,background:'#be123c55',boxShadow:'inset 0 0 0 1.5px #cbd5e1'}}/>
-            <span style={{fontSize:'0.7rem',color:'#64748b'}}>Silver border = changed by a swap (hover for partner)</span>
+            <span style={{color:'#cbd5e1',fontSize:'0.75rem'}}>⇄</span>
+            <span style={{fontSize:'0.7rem',color:'#64748b'}}>Day changed by a swap (hover for who with)</span>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:5}}>
             <div style={{width:6,height:6,borderRadius:'50%',background:'#64748b'}}/>
