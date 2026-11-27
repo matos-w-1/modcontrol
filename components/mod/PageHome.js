@@ -128,7 +128,7 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
     if (calVacs.some(v=>v.user_id===mod.id&&d>=v.start_date&&d<=v.end_date)) return { label:'VAC', color:'#a855f7' }
     const swap = swapRole(calSwaps, mod.id, d)      // 'out' = gave the day away, 'in' = works an extra day
     if (swap === 'out') return { label:'SWAP', color:'#cbd5e1' }
-    if (swap !== 'in' && daysOff.includes(dayName)) return { label:'OFF', color:'#be123c' }
+    if (daysOff.includes(dayName)) return { label:'OFF', color:'#be123c', swapIn: swap==='in' }   // swapIn on an OFF day = day off worked through a swap
     const color = SHIFT_COLOR[mod.shift]||'#94a3b8'
     return { label:'●', color, swapIn: swap==='in' }
   }
@@ -326,7 +326,7 @@ const isEvenMonth = (now.getMonth()+1) % 2 === 0
                               ? (status.swapIn
                                 ? <div title="Working an extra day (swap)" style={{width:9, height:9, borderRadius:'50%', border:'2px solid #cbd5e1', boxSizing:'border-box', margin:'0 auto'}}/>
                                 : <div style={{width:6, height:6, borderRadius:'50%', background:'#64748b', margin:'0 auto'}}/>)
-                              : <div style={{fontSize:'0.62rem', fontWeight:700, color:status.color, background:status.color+'22', padding:'3px 4px', borderRadius:4, textTransform:'uppercase'}}>{status.label}</div>
+                              : <div style={{fontSize:'0.62rem', fontWeight:700, color:status.color, background:status.color+'22', padding:'3px 4px', borderRadius:4, textTransform:'uppercase', ...(status.label==='OFF'&&status.swapIn?{boxShadow:'inset 0 0 0 1.5px #cbd5e1'}:{})}} title={status.label==='OFF'&&status.swapIn?'Day off, working it (swap)':undefined}>{status.label}</div>
                             }
                           </td>
                         )

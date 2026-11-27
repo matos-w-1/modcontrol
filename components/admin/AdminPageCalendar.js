@@ -70,7 +70,7 @@ export function AdminPageCalendar() {
     if (isOnVacation(mod.id, date))  return { label:'VAC', color:'#a855f7', bg:'#a855f718' }
     const swap = swapRole(swaps, mod.id, toLocalISO(date))      // 'out' = gave the day away, 'in' = works an extra day
     if (swap === 'out')              return { label:'SWAP', color:'#cbd5e1', bg:'#cbd5e118' }
-    if (swap !== 'in' && isOff(mod, date)) return { label:'OFF', color:'#be123c', bg:'#be123c33' }
+    if (isOff(mod, date))            return { label:'OFF', color:'#be123c', bg:'#be123c33', swapIn: swap==='in' }   // swapIn on an OFF day = day off worked through a swap
     const dayName = date.toLocaleDateString('en-GB',{weekday:'long'})
     const override = overrides.find(o => o.user_id===mod.id && o.day_of_week===dayName)
     if (override) {
@@ -127,12 +127,12 @@ export function AdminPageCalendar() {
                     const isWeekend = d.getDay()===0||d.getDay()===6
                     const isWorking = cell.label!=='OFF'&&cell.label!=='VAC'&&cell.label!=='SWAP'&&cell.label!=='🎂'&&!cell.label?.includes('-')
                     return (
-                      <td key={i} title={`${mod.name} · ${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})} · ${isWorking?(cell.swapIn?'Working an extra day (swap)':'Working'):cell.label}`} style={{padding:'6px 1px', textAlign:'center', borderBottom:'1px solid #0f1117', borderLeft:d.getDay()===1?'1px solid #1e2433':'none', background:isToday?'#1e2a44':isWeekend?'#0d1018':'transparent'}}>
+                      <td key={i} title={`${mod.name} · ${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})} · ${isWorking?(cell.swapIn?'Working an extra day (swap)':'Working'):(cell.label==='OFF'&&cell.swapIn?'Day off, working it (swap)':cell.label)}`} style={{padding:'6px 1px', textAlign:'center', borderBottom:'1px solid #0f1117', borderLeft:d.getDay()===1?'1px solid #1e2433':'none', background:isToday?'#1e2a44':isWeekend?'#0d1018':'transparent'}}>
                       {isWorking
                         ? (cell.swapIn
                           ? <div style={{width:8, height:8, borderRadius:'50%', border:'2px solid #cbd5e1', boxSizing:'border-box', margin:'0 auto'}}/>
                           : <div style={{width:5, height:5, borderRadius:'50%', background:'#334155', margin:'0 auto'}}/>)
-                        : <div style={{fontSize:'0.56rem', fontWeight:700, color:cell.color, background:cell.color+'2e', padding:'3px 0', borderRadius:4, textTransform:'uppercase'}}>{cell.label}</div>
+                        : <div style={{fontSize:'0.56rem', fontWeight:700, color:cell.color, background:cell.color+'2e', padding:'3px 0', borderRadius:4, textTransform:'uppercase', ...(cell.label==='OFF'&&cell.swapIn?{boxShadow:'inset 0 0 0 1.5px #cbd5e1'}:{})}}>{cell.label}</div>
                       }
                     </td>
                     )
