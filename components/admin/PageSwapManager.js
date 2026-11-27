@@ -20,7 +20,7 @@ export function PageSwapManager({ adminId }) {
     const [{ data:sw },{ data:db },{ data:p }] = await Promise.all([
       supabase.from('shift_swaps').select('*').order('created_at',{ascending:false}),
       supabase.from('swap_debts').select('*').order('created_at',{ascending:false}),
-      supabase.from('profiles').select('id,name,role,status,shift'),
+      supabase.from('profiles').select('id,name,role,status,shift,days_off,rotating_days_off,rotating_days_off_alt'),
     ])
     const map={}; (p||[]).forEach(x=>map[x.id]=x.name)
     setMods(map); setDebts(db||[])
